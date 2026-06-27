@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 
-import sys
+import argparse
+from argus.plugins import analyze
 
 VERSION = "0.1.0"
 
 BANNER = f"""
-╔══════════════════════════════════════════════╗
-║                 ARGUS v{VERSION}                 ║
-║   Mobile Application Security Framework     ║
-╚══════════════════════════════════════════════╝
+ARGUS v{VERSION}
+Mobile Application Security Research Framework
 
 Evidence over Assumptions
 Impact over Enumeration
@@ -16,54 +15,48 @@ Quality over Quantity
 Methodology over Luck
 """
 
+def build_parser():
+    parser = argparse.ArgumentParser(
+        prog="argus",
+        description="Mobile Application Security Research Framework",
+    )
 
-def show_help():
-    print("""
-Available Commands
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"ARGUS v{VERSION}",
+    )
 
-  analyze <file>
-  focus <bundle_id>
-  review
-  evidence
-  knowledge
-  report
-  version
-  help
-""")
+    subparsers = parser.add_subparsers(dest="command")
 
+    analyze_parser = subparsers.add_parser(
+        "analyze",
+        help="Analyze an app metadata file",
+    )
+    analyze_parser.add_argument("file", help="Path to apps.json or metadata file")
+    analyze_parser.set_defaults(func=analyze.run)
 
-def analyze(args):
-    if not args:
-        print("Usage: argus analyze <file>")
-        return
+    subparsers.add_parser("review", help="Review a potential finding")
+    subparsers.add_parser("evidence", help="Create an evidence workspace")
+    subparsers.add_parser("knowledge", help="Manage research knowledge")
+    subparsers.add_parser("report", help="Generate report material")
 
-    print("[+] Analyze engine starting...")
-    print(f"[+] Target: {args[0]}")
-    print()
-    print("(Feature not implemented yet.)")
-
+    return parser
 
 def main():
+    parser = build_parser()
+    args = parser.parse_args()
 
-    if len(sys.argv) == 1:
+    if not args.command:
         print(BANNER)
-        return
+        parser.print_help()
+        return 0
 
-    command = sys.argv[1].lower()
+    if hasattr(args, "func"):
+        return args.func(args)
 
-    if command == "help":
-        show_help()
-
-    elif command == "version":
-        print(f"ARGUS v{VERSION}")
-
-    elif command == "analyze":
-        analyze(sys.argv[2:])
-
-    else:
-        print(f"Unknown command: {command}")
-        print("Run 'argus help'")
-
+    print(f"[!] Command '{args.command}' is not implemented yet.")
+    return 0
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
