@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-from argus.plugins import analyze
+from argus.plugins import analyze, evidence
 
 VERSION = "0.1.0"
 
@@ -36,8 +36,20 @@ def build_parser():
     analyze_parser.add_argument("file", help="Path to apps.json or metadata file")
     analyze_parser.set_defaults(func=analyze.run)
 
+    evidence_parser = subparsers.add_parser(
+        "evidence",
+        help="Create and manage evidence workspaces",
+    )
+    evidence_subparsers = evidence_parser.add_subparsers(dest="evidence_command")
+
+    evidence_create = evidence_subparsers.add_parser(
+        "create",
+        help="Create a new evidence workspace",
+    )
+    evidence_create.add_argument("name", help="Investigation name")
+    evidence_create.set_defaults(func=evidence.run)
+
     subparsers.add_parser("review", help="Review a potential finding")
-    subparsers.add_parser("evidence", help="Create an evidence workspace")
     subparsers.add_parser("knowledge", help="Manage research knowledge")
     subparsers.add_parser("report", help="Generate report material")
 
