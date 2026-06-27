@@ -1,0 +1,12 @@
+[project]
+name = "argus-mobile"
+version = "0.1.0"
+description = "Mobile Application Security Research Framework"
+requires-python = ">=3.10"
+
+[project.scripts]
+argus-mobile  = "argus.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["argus*"]
