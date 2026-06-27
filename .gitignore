@@ -11,3 +11,14 @@ venv/
 .pytest_cache/
 
 .DS_Store
+
+# Investigation workspaces
+evidence/
+
+# Local app metadata
+apps.json
+*.ipa
+
+# macOS/iOS extracted bundles
+Payload/
+*.app
