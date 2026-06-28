@@ -22,3 +22,11 @@ apps.json
 # macOS/iOS extracted bundles
 Payload/
 *.app
+
+# Local scratch files
+Argus
+Contributing
+docs1/
+tests1/
+to
+reports/
