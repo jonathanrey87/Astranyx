@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-from argus.plugins import analyze, evidence, review, ipa, focus, threat
+from argus.plugins import analyze, evidence, review, ipa, focus, threat,  report
 
 VERSION = "0.1.0"
 
@@ -90,7 +90,17 @@ def build_parser():
     threat_parser.add_argument("file", help="Path to apps.json")
     threat_parser.set_defaults(func=threat.run)
 
-    subparsers.add_parser("report", help="Generate report material")
+    report_parser = subparsers.add_parser(
+	"report",
+	help="Generate a report template",
+    )
+
+    report_parser.add_argument(
+	"path",
+	help="Evidence workspace",
+    )
+
+    report_parser.set_defaults(func=report.run) 
 
     return parser
 
