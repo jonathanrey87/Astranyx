@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-from argus.plugins import analyze, evidence, review, ipa, focus, threat,  report, playbook
+from argus.plugins import analyze, evidence, review, ipa, focus, threat,  report, playbook, investigate
 
 VERSION = "0.1.0"
 
@@ -109,6 +109,14 @@ def build_parser():
     )
 
     report_parser.set_defaults(func=report.run) 
+
+    investigate_parser = subparsers.add_parser(
+	"investigate",
+	help="Start a guided investigation",
+    )
+    investigate_parser.add_argument("bundle_id")
+    investigate_parser.add_argument("metadata")
+    investigate_parser.set_defaults(func=investigate.run)
 
     return parser
 
