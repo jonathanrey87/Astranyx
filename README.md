@@ -1,5 +1,7 @@
 # Argus
 
+GitHub Actions workflow is configured, but CI execution depends on repository/account billing status.
+
 > Mobile Application Security Research Framework
 
 Argus is a modular framework designed to help security researchers perform structured, evidence-driven mobile application security assessments.
