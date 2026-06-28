@@ -1,0 +1,37 @@
+{
+  "associated_domains": {
+    "stars": "★★★★★",
+    "reason": "Universal Links may expose authenticated entry points.",
+    "tests": [
+      "AASA validation",
+      "Authorization checks",
+      "Deep Link authorization"
+    ]
+  },
+  "url_schemes": {
+    "stars": "★★★★★",
+    "reason": "Custom URL schemes expose application entry points.",
+    "tests": [
+      "Deep Link parsing",
+      "Malformed parameters",
+      "Authentication bypass"
+    ]
+  },
+  "apple_pay": {
+    "stars": "★★★★☆",
+    "reason": "Payment flows often contain business logic.",
+    "tests": [
+      "Amount validation",
+      "Authorization",
+      "Payment state changes"
+    ]
+  },
+  "push_notifications": {
+    "stars": "★★★☆☆",
+    "reason": "Notifications can trigger authenticated actions.",
+    "tests": [
+      "Notification handling",
+      "Lock-screen behavior"
+    ]
+  }
+}
