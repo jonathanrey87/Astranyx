@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-from argus.plugins import analyze, evidence, review, ipa, focus, threat,  report
+from argus.plugins import analyze, evidence, review, ipa, focus, threat,  report, playbook
 
 VERSION = "0.1.0"
 
@@ -89,6 +89,14 @@ def build_parser():
     threat_parser.add_argument("bundle", help="Bundle ID")
     threat_parser.add_argument("file", help="Path to apps.json")
     threat_parser.set_defaults(func=threat.run)
+
+
+    playbook_parser = subparsers.add_parser(
+        "playbook",
+        help="Show a testing playbook",
+    )
+    playbook_parser.add_argument("name", help="Playbook name")
+    playbook_parser.set_defaults(func=playbook.run)
 
     report_parser = subparsers.add_parser(
 	"report",
