@@ -1,4 +1,4 @@
-from pathlib import Path
+from argus.service.data import load_apps
 import json
 
 def get_url_schemes(app):
@@ -15,7 +15,7 @@ def run(args):
         return 1
 
     with target.open() as f:
-        data = json.load(f)
+        data = loada_apps(args.metadata)
 
     app = data.get(args.bundle)
 

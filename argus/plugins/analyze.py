@@ -1,4 +1,4 @@
-from pathlib import Path
+from argus.service.data import Path
 import json
 
 SENSITIVE_PERMISSIONS = [
@@ -71,7 +71,7 @@ def run(args):
         return 1
 
     try:
-        data = json.loads(target.read_text())
+        data = load_apps(args.metadata)
     except Exception as e:
         print(f"[-] Could not parse JSON: {e}")
         return 1
