@@ -1,5 +1,5 @@
 from argus.services.data import load_apps
-import json
+from pathlib import Path
 
 def schemes(app):
     out = []
@@ -22,7 +22,7 @@ def run(args):
         print(f"[-] File not found: {target}")
         return 1
 
-    data = load_app(args.metadata)
+    data = load_apps(args.file)
     app = data.get(args.bundle)
 
     if not app:
