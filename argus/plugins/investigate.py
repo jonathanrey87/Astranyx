@@ -29,10 +29,20 @@ def run(args):
     print()
     print("✓ Metadata loaded")
     print()
-    print("Next:")
-    print("- Generate threat model")
-    print("- Generate focus report")
-    print("- Create evidence workspace")
-    print("- Recommend playbooks")
+    from argus.plugins.evidence import create_workspace
+
+    workspace = create_workspace(f"INV {name}") 
+
+    print("Workpspace")
+    print("----------")
+    print(workspace)
+    print()
+
+    print("Next")
+    print("----")
+    print(". Generate threat Model")
+    print(". Generate focus report")
+    print(". Recommend playbooks")
+    
 
     return 0
