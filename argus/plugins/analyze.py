@@ -1,5 +1,6 @@
-from argus.service.data import Path
-import json
+from pathlib import Path 
+from argus.services.data import load_apps
+
 
 SENSITIVE_PERMISSIONS = [
     "NSCameraUsageDescription",

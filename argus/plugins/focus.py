@@ -1,4 +1,4 @@
-from argus.service.data import load_apps
+from argus.services.data import load_apps
 import json
 
 def get_url_schemes(app):
