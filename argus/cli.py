@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-from argus.plugins import analyze, evidence, review, ipa, focus, threat,  report, playbook, investigate
+from argus.plugins import analyze, evidence, review, ipa, focus, threat, report, playbook, investigate, extract
 
 VERSION = "0.1.0"
 
@@ -117,6 +117,12 @@ def build_parser():
     investigate_parser.add_argument("bundle_id")
     investigate_parser.add_argument("metadata")
     investigate_parser.set_defaults(func=investigate.run)
+
+    extract_parser = subparsers.add_parser(
+	"extract",
+	help="Extract application metadata from connected device",
+    )
+    extract_parser.set_defaults(func=extract.run)
 
     return parser
 
