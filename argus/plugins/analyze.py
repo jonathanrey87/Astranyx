@@ -72,7 +72,7 @@ def run(args):
         return 1
 
     try:
-        data = load_apps(args.metadata)
+        data = load_apps(args.file)
     except Exception as e:
         print(f"[-] Could not parse JSON: {e}")
         return 1
