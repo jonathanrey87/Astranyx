@@ -16,7 +16,7 @@ def run(args):
         return 1
 
     with target.open() as f:
-        data = loada_apps(args.metadata)
+        data = load_apps(args.file)
 
     app = data.get(args.bundle)
 
