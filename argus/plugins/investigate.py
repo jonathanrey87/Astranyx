@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+from argus.plugins import threat, focus
 from argus.services.data import load_apps
 from argus.services.checklist import create as create_checklist
 
@@ -50,6 +52,29 @@ def run(args):
     print(". Generate threat model")
     print(". Generate focus report")
     print(". Recommend playbooks")
-    
+    print()
+    print("Running Analysis")
+    print("----------------")
+
+    analysis_args = SimpleNamespace(
+	bundle=args.bundle_id,
+	file=args.metadata,
+    )
+
+    print("[1/2] Threat model")
+    threat.run(analysis_args)
+
+    print()
+    print("[2/2] Focus report")
+    focus.run(analysis_args)
+
+    print()
+    print("Investigate Ready")
+    print("-----------------")
+    print("✓ Workspace")
+    print("✓ Checklist")
+    print("✓ Threat Model")
+    print("✓ Focus Report")
+    print("✓ Playbooks")
 
     return 0
