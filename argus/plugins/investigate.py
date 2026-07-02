@@ -1,4 +1,5 @@
 from argus.services.data import load_apps
+from argus.services.checklist import create as create_checklist
 
 
 def run(args):
@@ -33,14 +34,20 @@ def run(args):
 
     workspace = create_workspace(f"INV {name}") 
 
-    print("Workpspace")
+    print("Workspace")
     print("----------")
     print(workspace)
+
+    checklist = create_checklist(workspace)
+    print()
+    print("Checklist")
+    print("---------")
+    print(checklist)
     print()
 
     print("Next")
     print("----")
-    print(". Generate threat Model")
+    print(". Generate threat model")
     print(". Generate focus report")
     print(". Recommend playbooks")
     
