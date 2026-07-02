@@ -1,17 +1,22 @@
 # Argus
 
-Argus is a mobile application security research framework focused on iOS application assessment.
+> Mobile Application Security Research Framework
+
+Argus is a Python framework for mobile application security research. It automates metadata extraction, investigation setup, threat modeling, focus analysis, evidence collection, and reporting for iOS application assessments.
+
+---
 
 ## Features
 
-- iOS application metadata extraction
-- Threat modeling
-- Focus reports
-- Investigation workspaces
-- Evidence management
-- Investigation dashboard
-- Report generation
-- Investigation review
+- 📱 iOS application metadata extraction
+- 🔍 Guided investigation workflow
+- 🛡 Threat model generation
+- 🎯 Focus report generation
+- 📂 Investigation workspaces
+- 📝 Evidence management
+- 📊 Dashboard
+- 📄 Report generation
+- ✅ Investigation review
 
 ---
 
@@ -19,9 +24,11 @@ Argus is a mobile application security research framework focused on iOS applica
 
 ```bash
 git clone https://github.com/jonathanrey87/Argus.git
+
 cd Argus
 
 python -m venv .venv
+
 source .venv/bin/activate
 
 pip install -e .
@@ -31,7 +38,7 @@ pip install -e .
 
 ## Quick Start
 
-Extract installed apps
+Extract applications
 
 ```bash
 python -m argus.cli extract
@@ -43,22 +50,32 @@ Start an investigation
 python -m argus.cli investigate com.openai.chat ~/apps.json
 ```
 
-Review evidence
+Review
 
 ```bash
 python -m argus.cli review evidence/INV_ChatGPT
 ```
 
-Generate report
-
-```bash
-python -m argus.cli report evidence/INV_ChatGPT
-```
-
-Open dashboard
+Dashboard
 
 ```bash
 python -m argus.cli dashboard
+```
+
+---
+
+## Architecture
+
+```
+Dashboard
+     │
+Investigation
+     │
+ ├── Threat
+ ├── Focus
+ ├── Playbooks
+ ├── Evidence
+ └── Reports
 ```
 
 ---
@@ -71,11 +88,9 @@ pytest -v
 
 ---
 
-## Current Status
+## Current Release
 
-Current release:
-
-v0.5.0-alpha
+**v0.5.0-alpha**
 
 ---
 
