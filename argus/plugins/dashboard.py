@@ -1,3 +1,4 @@
+from argus.services.status import get_status
 from pathlib import Path
 import subprocess
 
@@ -42,7 +43,8 @@ def run(args):
     print("--------------")
     if investigations:
         for item in investigations:
-            print(f"- {item.name}")
+            status = get_status(item)
+            print(f"- {item.name:<35} {status}")
     else:
         print("- none")
 
