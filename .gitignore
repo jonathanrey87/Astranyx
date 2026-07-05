@@ -1,32 +1,10 @@
+venv/
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
 
-*.egg-info/
-
-.venv/
-venv/
-
-.pytest_cache/
-
-.DS_Store
-
-# Investigation workspaces
+investigations/
 evidence/
-
-# Local app metadata
-apps.json
-*.ipa
-
-# macOS/iOS extracted bundles
-Payload/
-*.app
-
-# Local scratch files
-Argus
-Contributing
-docs1/
-tests1/
-to
 reports/
+
+analysis/
+*.log
