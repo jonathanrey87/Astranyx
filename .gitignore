@@ -8,3 +8,11 @@ reports/
 
 analysis/
 *.log
+
+# Python packaging
+*.egg-info/
+build/
+dist/
+
+# Cache
+.pytest_cache/
