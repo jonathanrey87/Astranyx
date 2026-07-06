@@ -1,6 +1,5 @@
 """
 Argus Intelligence Engine
-
 Risk scoring utilities.
 """
 
@@ -30,9 +29,7 @@ WEIGHTS = {
 
 
 def calculate_score(category: str, matches: int) -> RiskAssessment:
-    """
-    Calculate a basic risk score for one evidence category.
-    """
+    """Calculate a simple explainable risk score."""
 
     weight = WEIGHTS.get(category.lower(), 10)
 
