@@ -1,4 +1,5 @@
 from argus.wordpress.sql import analyze_sql_finding
+from argus.intelligence.safe_patterns import reduce_noise
 
 
 def get_context(lines, line_number, radius=8):
@@ -76,4 +77,5 @@ def analyze_finding(finding, lines):
     elif finding.category == "SQL Query":
         finding = analyze_sql_finding(finding, context)
 
+    finding = reduce_noise(finding, context)
     return finding

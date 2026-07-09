@@ -6,6 +6,7 @@ from argus.wordpress.taint import analyze as taint_analyze
 from argus.wordpress.rules.registry import get_rules_for_file
 from argus.core.report import Report
 from argus.core.html import render
+from argus.core.sarif import export as export_sarif
 
 
 @dataclass
@@ -13,6 +14,7 @@ class Finding:
     category: str
     severity: str
     file: str
+    full_path: str
     line: int
     evidence: str
     note: str
@@ -67,6 +69,7 @@ def scan_file(path: Path, root: Path):
                     category=rule["category"],
                     severity=rule["severity"],
                     file=str(path.relative_to(root)),
+                    full_path=str(path),
                     line=idx,
                     evidence=line.strip()[:250],
                     note=make_note(rule["category"]),
@@ -82,6 +85,7 @@ def scan_file(path: Path, root: Path):
                     category="Potential Taint Flow",
                     severity="High",
                     file=str(path.relative_to(root)),
+                    full_path=str(path),
                     line=1,
                     evidence=f"{tf.variable} -> {tf.sink}",
                     note=tf.reason,
@@ -152,6 +156,7 @@ def run(plugin_path):
     report = Report(plugin_path, findings)
     out = Path("reports") / Path(plugin_path).name
     render(report, out)
+    export_sarif(report, out)
 
     print()
     print("=" * 60)
@@ -159,6 +164,8 @@ def run(plugin_path):
     print("=" * 60)
     print(f"HTML : {out / 'index.html'}")
     print(f"JSON : {out / 'findings.json'}")
+    print(f"CSV  : {out / 'findings.csv'}")
+    print(f"SARIF: {out / 'findings.sarif'}")
 
 
 if __name__ == "__main__":

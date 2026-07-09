@@ -2,6 +2,8 @@ from pathlib import Path
 import html
 import csv
 import json
+from argus.core.preview import source_preview
+from argus.intelligence.cwe import get_mapping
 
 
 def confidence_band(conf):
@@ -61,6 +63,23 @@ def render(report, output_dir):
     rows = ""
     for i, f in enumerate(findings):
         band = confidence_band(f.confidence)
+        mapping = get_mapping(f.category)
+
+        preview = source_preview(getattr(f, "full_path", ""), f.line, radius=5)
+        preview_html = ""
+
+        for ln, code in preview:
+            cls = "current-line" if ln == f.line else ""
+            preview_html += (
+                f'<div class="{cls}">'
+                f'<span class="ln">{ln:4}</span> '
+                f'{html.escape(code)}'
+                "</div>"
+            )
+
+        if not preview_html:
+            preview_html = "<em>No source preview available.</em>"
+
         rows += f"""
         <tr class="finding-row {band}" data-band="{band}" data-category="{html.escape(f.category)}">
             <td><button class="toggle" onclick="toggleDetails({i})">▶</button></td>
@@ -74,8 +93,20 @@ def render(report, output_dir):
         <tr id="details-{i}" class="details">
             <td colspan="7">
                 <div class="details-box">
+                    <h4>Source Preview</h4>
+                    <div class="source-preview">
+                        {preview_html}
+                    </div>
+
                     <h4>Evidence</h4>
                     <pre>{html.escape(f.evidence)}</pre>
+                    <h4>Classification</h4>
+                    <p>
+                        <strong>CWE:</strong> {html.escape(mapping["cwe"])} |
+                        <strong>OWASP:</strong> {html.escape(mapping["owasp"])} |
+                        <strong>CVSS:</strong> {html.escape(mapping["cvss"])}
+                    </p>
+
                     <h4>Recommendation</h4>
                     <p>{html.escape(recommendation(f))}</p>
                     <h4>Note</h4>
