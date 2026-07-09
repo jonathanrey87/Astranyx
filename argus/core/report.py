@@ -1,0 +1,37 @@
+from dataclasses import dataclass, field
+from datetime import datetime
+from collections import Counter
+import json
+
+
+@dataclass
+class Report:
+    target: str
+    findings: list
+    generated: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+    def summary(self):
+        counts = Counter(f.category for f in self.findings)
+
+        high = sum(1 for f in self.findings if f.confidence >= 80)
+        medium = sum(1 for f in self.findings if 40 <= f.confidence < 80)
+        low = sum(1 for f in self.findings if f.confidence < 40)
+
+        return {
+            "generated": self.generated,
+            "target": self.target,
+            "total": len(self.findings),
+            "high": high,
+            "medium": medium,
+            "low": low,
+            "categories": dict(counts),
+        }
+
+    def to_json(self):
+        return json.dumps(
+            {
+                "summary": self.summary(),
+                "findings": [vars(f) for f in self.findings],
+            },
+            indent=2,
+        )

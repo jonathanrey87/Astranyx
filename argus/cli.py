@@ -2,6 +2,7 @@ import argparse
 
 from argus.modules import js
 from argus.commands import report as report_command
+from argus.wordpress import scanner
 
 
 def run_js(args):
@@ -10,6 +11,10 @@ def run_js(args):
 
 def run_report(args):
     report_command.run(args.report_json)
+
+
+def run_wordpress(args):
+    scanner.run(args.path)
 
 
 def main():
@@ -30,6 +35,13 @@ def main():
     )
     report_parser.add_argument("report_json", help="Path to analysis/report.json")
     report_parser.set_defaults(func=run_report)
+
+    wordpress_parser = subparsers.add_parser(
+        "wordpress",
+        help="Audit a WordPress plugin",
+    )
+    wordpress_parser.add_argument("path", help="Plugin directory")
+    wordpress_parser.set_defaults(func=run_wordpress)
 
     args = parser.parse_args()
 
