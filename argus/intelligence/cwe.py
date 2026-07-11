@@ -63,8 +63,11 @@ CWE_MAP = {
 
 
 def get_mapping(category):
-    return CWE_MAP.get(category, {
-        "cwe": "N/A",
-        "owasp": "N/A",
-        "cvss": "N/A",
-    })
+    return CWE_MAP.get(
+        category,
+        {
+            "cwe": "N/A",
+            "owasp": "N/A",
+            "cvss": "N/A",
+        },
+    )

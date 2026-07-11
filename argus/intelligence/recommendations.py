@@ -6,7 +6,6 @@ Generate investigation recommendations from classified evidence.
 
 from argus.intelligence.models import EvidenceCategory
 
-
 RULES = {
     "auth": [
         "Review login and logout flows.",

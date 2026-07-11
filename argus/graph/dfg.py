@@ -26,11 +26,7 @@ class DataFlowGraph:
         return sorted(self.edges.get(node, set()))
 
     def predecessors(self, node: str):
-        return sorted(
-            src
-            for src, targets in self.edges.items()
-            if node in targets
-        )
+        return sorted(src for src, targets in self.edges.items() if node in targets)
 
     def build(self, module: IRModule):
         for fn in module.functions:

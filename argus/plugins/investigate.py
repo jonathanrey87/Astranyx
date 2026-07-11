@@ -34,7 +34,7 @@ def run(args):
     print()
     from argus.plugins.evidence import create_workspace
 
-    workspace = create_workspace(f"INV {name}") 
+    workspace = create_workspace(f"INV {name}")
 
     print("Workspace")
     print("----------")
@@ -57,8 +57,8 @@ def run(args):
     print("----------------")
 
     analysis_args = SimpleNamespace(
-	bundle=args.bundle_id,
-	file=args.metadata,
+        bundle=args.bundle_id,
+        file=args.metadata,
     )
 
     print("[1/2] Threat model")

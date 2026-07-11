@@ -15,14 +15,17 @@ def analyze_finding(finding, lines):
     finding.reason = "Manual review required."
 
     if finding.category == "React Dangerous Sink":
-        if any(x in context for x in (
-            "DOMPurify",
-            "htmlspecialchars",
-            "esc_html",
-            ".replace(/</g",
-            "&lt;",
-            "&amp;",
-        )):
+        if any(
+            x in context
+            for x in (
+                "DOMPurify",
+                "htmlspecialchars",
+                "esc_html",
+                ".replace(/</g",
+                "&lt;",
+                "&amp;",
+            )
+        ):
             finding.confidence = 5
             finding.reason = "HTML escaping/sanitization detected before rendering."
         else:
@@ -30,12 +33,15 @@ def analyze_finding(finding, lines):
             finding.reason = "No obvious escaping found near DOM sink."
 
     elif finding.category == "Public REST Permission":
-        if any(x in context for x in (
-            "current_user_can",
-            "ensurePermission",
-            "manage_options",
-            "Capabilities::Check",
-        )):
+        if any(
+            x in context
+            for x in (
+                "current_user_can",
+                "ensurePermission",
+                "manage_options",
+                "Capabilities::Check",
+            )
+        ):
             finding.confidence = 15
             finding.reason = "Authorization check found near route."
         else:
@@ -43,12 +49,15 @@ def analyze_finding(finding, lines):
             finding.reason = "Public REST route without nearby authorization."
 
     elif finding.category == "Dynamic Include":
-        if any(x in context for x in (
-            "$_GET",
-            "$_POST",
-            "$_REQUEST",
-            "$_FILES",
-        )):
+        if any(
+            x in context
+            for x in (
+                "$_GET",
+                "$_POST",
+                "$_REQUEST",
+                "$_FILES",
+            )
+        ):
             finding.confidence = 85
             finding.reason = "Include path may be influenced by user input."
         else:

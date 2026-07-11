@@ -15,9 +15,11 @@ def run(args):
     reports_dir = Path("reports")
     playbooks_dir = Path("playbooks")
 
-    investigations = sorted(
-        p for p in evidence_dir.glob("INV_*") if p.is_dir()
-    ) if evidence_dir.exists() else []
+    investigations = (
+        sorted(p for p in evidence_dir.glob("INV_*") if p.is_dir())
+        if evidence_dir.exists()
+        else []
+    )
 
     reports = sorted(reports_dir.glob("*.md")) if reports_dir.exists() else []
     playbooks = sorted(playbooks_dir.glob("*.md")) if playbooks_dir.exists() else []

@@ -2,9 +2,11 @@ from datetime import datetime
 from pathlib import Path
 import re
 
+
 def slugify(name: str) -> str:
     clean = re.sub(r"[^A-Za-z0-9]+", "_", name.strip())
     return clean.strip("_") or "investigation"
+
 
 def create_workspace(name: str) -> Path:
     slug = slugify(name)
@@ -64,6 +66,7 @@ Researcher: Jonathan Mendiola
 """)
 
     return root
+
 
 def run(args):
     if args.evidence_command == "create":

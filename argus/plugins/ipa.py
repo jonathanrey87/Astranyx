@@ -4,6 +4,7 @@ import zipfile
 import tempfile
 import shutil
 
+
 def find_app_dir(path: Path) -> Path | None:
     if path.is_dir() and path.suffix == ".app":
         return path
@@ -14,6 +15,7 @@ def find_app_dir(path: Path) -> Path | None:
 
     return None
 
+
 def load_plist(app_dir: Path) -> dict:
     plist_path = app_dir / "Info.plist"
     if not plist_path.exists():
@@ -21,6 +23,7 @@ def load_plist(app_dir: Path) -> dict:
 
     with plist_path.open("rb") as f:
         return plistlib.load(f)
+
 
 def extract_ipa(ipa_path: Path) -> Path:
     temp = Path(tempfile.mkdtemp(prefix="argus_ipa_"))
@@ -30,11 +33,13 @@ def extract_ipa(ipa_path: Path) -> Path:
 
     return temp
 
+
 def get_url_schemes(info: dict) -> list[str]:
     schemes = []
     for entry in info.get("CFBundleURLTypes", []) or []:
         schemes.extend(entry.get("CFBundleURLSchemes", []) or [])
     return sorted(set(schemes))
+
 
 def run(args):
     target = Path(args.file)
@@ -62,7 +67,9 @@ def run(args):
         print("==================")
         print()
         print(f"App Directory: {app_dir}")
-        print(f"Name: {info.get('CFBundleDisplayName') or info.get('CFBundleName', 'Unknown')}")
+        print(
+            f"Name: {info.get('CFBundleDisplayName') or info.get('CFBundleName', 'Unknown')}"
+        )
         print(f"Bundle ID: {info.get('CFBundleIdentifier', 'Unknown')}")
         print(f"Version: {info.get('CFBundleShortVersionString', 'Unknown')}")
         print(f"Build: {info.get('CFBundleVersion', 'Unknown')}")
@@ -85,7 +92,11 @@ def run(args):
                 print(f"- {d}")
             print()
 
-        permissions = sorted(k for k in info.keys() if k.startswith("NS") and k.endswith("UsageDescription"))
+        permissions = sorted(
+            k
+            for k in info.keys()
+            if k.startswith("NS") and k.endswith("UsageDescription")
+        )
         if permissions:
             print("Privacy Permissions")
             print("-------------------")

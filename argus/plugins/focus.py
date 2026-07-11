@@ -1,12 +1,13 @@
 from pathlib import Path
 from argus.services.data import load_apps
-import json
+
 
 def get_url_schemes(app):
     schemes = []
     for entry in app.get("CFBundleURLTypes", []) or []:
         schemes.extend(entry.get("CFBundleURLSchemes", []) or [])
     return sorted(set(schemes))
+
 
 def run(args):
     target = Path(args.file)
@@ -15,8 +16,7 @@ def run(args):
         print(f"[-] File not found: {target}")
         return 1
 
-    with target.open() as f:
-        data = load_apps(args.file)
+    data = load_apps(args.file)
 
     app = data.get(args.bundle)
 
@@ -30,7 +30,9 @@ def run(args):
     print("==================")
     print()
 
-    print(f"Name: {app.get('CFBundleDisplayName') or app.get('CFBundleName') or args.bundle}")
+    print(
+        f"Name: {app.get('CFBundleDisplayName') or app.get('CFBundleName') or args.bundle}"
+    )
     print(f"Bundle ID: {args.bundle}")
     print()
 

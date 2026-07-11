@@ -8,7 +8,9 @@ import json
 class Report:
     target: str
     findings: list
-    generated: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    generated: str = field(
+        default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    )
 
     def summary(self):
         counts = Counter(f.category for f in self.findings)

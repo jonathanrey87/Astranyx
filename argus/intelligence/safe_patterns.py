@@ -38,7 +38,9 @@ def reduce_noise(finding, context):
             finding.reason = "php://input is an input source, not an SSRF sink."
             return finding
 
-        if "file_get_contents" in evidence and any(p in text for p in SAFE_FILE_READ_PATTERNS):
+        if "file_get_contents" in evidence and any(
+            p in text for p in SAFE_FILE_READ_PATTERNS
+        ):
             finding.confidence = min(finding.confidence, 5)
             finding.reason = "Likely local file read pattern detected."
             return finding

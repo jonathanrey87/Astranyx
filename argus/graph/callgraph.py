@@ -53,11 +53,7 @@ class CallGraph:
 
     def callers(self, target: str):
 
-        return sorted(
-            node
-            for node, callees in self.edges.items()
-            if target in callees
-        )
+        return sorted(node for node, callees in self.edges.items() if target in callees)
 
     def callees(self, caller: str):
 

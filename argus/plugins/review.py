@@ -2,7 +2,14 @@ from pathlib import Path
 import re
 
 REQUIRED_FILES = ["README.md", "notes.md", "timeline.md"]
-REQUIRED_DIRS = ["screenshots", "videos", "traffic", "requests", "responses", "artifacts"]
+REQUIRED_DIRS = [
+    "screenshots",
+    "videos",
+    "traffic",
+    "requests",
+    "responses",
+    "artifacts",
+]
 
 RESEARCH_FIELDS = {
     "Security Boundary": r"(?i)security boundary\s*\n\s*(?!\n|##)",
@@ -12,16 +19,20 @@ RESEARCH_FIELDS = {
     "Observed Behavior": r"(?i)observed behavior\s*\n\s*(?!\n|##)",
 }
 
+
 def has_content(path: Path) -> bool:
     return path.exists() and path.is_file() and path.stat().st_size > 20
+
 
 def count_files(path: Path) -> int:
     if not path.exists() or not path.is_dir():
         return 0
     return sum(1 for p in path.rglob("*") if p.is_file())
 
+
 def field_present(text: str, pattern: str) -> bool:
     return re.search(pattern, text) is not None
+
 
 def run(args):
     path = Path(args.path)
@@ -65,7 +76,14 @@ def run(args):
 
     print("Evidence")
     print("--------")
-    evidence_dirs = ["screenshots", "videos", "traffic", "requests", "responses", "artifacts"]
+    evidence_dirs = [
+        "screenshots",
+        "videos",
+        "traffic",
+        "requests",
+        "responses",
+        "artifacts",
+    ]
     for folder in evidence_dirs:
         total += 1
         n = count_files(path / folder)

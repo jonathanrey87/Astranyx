@@ -4,8 +4,6 @@ Argus Intelligence Engine
 Evidence classification.
 """
 
-from collections import defaultdict
-
 from argus.intelligence.models import EvidenceCategory
 
 

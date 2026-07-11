@@ -8,7 +8,6 @@ from argus.wordpress.rules.dangerous import RULES as DANGEROUS_RULES
 from argus.wordpress.rules.include import RULES as INCLUDE_RULES
 from argus.wordpress.rules.react import RULES as REACT_RULES
 
-
 PHP_RULES = (
     AJAX_RULES
     + REST_RULES

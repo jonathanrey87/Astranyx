@@ -15,15 +15,12 @@ def test_callgraph_edges():
     )
 
     module.functions.append(
-
         IRFunction(
             name="fetch",
-
             location=SourceLocation(
                 file="demo.rb",
                 line=10,
             ),
-
             calls=[
                 IRCall(
                     target="Gitlab::HTTP.get",
@@ -44,14 +41,6 @@ def test_callgraph_edges():
 
     assert graph.edge_count() == 1
 
-    assert graph.callees(
-        "demo.rb::fetch"
-    ) == [
-        "Gitlab::HTTP.get"
-    ]
+    assert graph.callees("demo.rb::fetch") == ["Gitlab::HTTP.get"]
 
-    assert graph.callers(
-        "Gitlab::HTTP.get"
-    ) == [
-        "demo.rb::fetch"
-    ]
+    assert graph.callers("Gitlab::HTTP.get") == ["demo.rb::fetch"]

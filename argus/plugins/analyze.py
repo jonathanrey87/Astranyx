@@ -1,6 +1,5 @@
-from pathlib import Path 
+from pathlib import Path
 from argus.services.data import load_apps
-
 
 SENSITIVE_PERMISSIONS = [
     "NSCameraUsageDescription",
@@ -12,11 +11,13 @@ SENSITIVE_PERMISSIONS = [
     "NSUserTrackingUsageDescription",
 ]
 
+
 def get_schemes(app):
     schemes = []
     for item in app.get("CFBundleURLTypes", []) or []:
         schemes.extend(item.get("CFBundleURLSchemes", []) or [])
     return sorted(set(schemes))
+
 
 def score_app(app):
     ent = app.get("Entitlements", {}) or {}
@@ -50,6 +51,7 @@ def score_app(app):
 
     return score, sorted(set(reasons))
 
+
 def stars(score):
     if score >= 12:
         return "★★★★★"
@@ -60,6 +62,7 @@ def stars(score):
     if score >= 3:
         return "★★☆☆☆"
     return "★☆☆☆☆"
+
 
 def run(args):
     target = Path(args.file)
@@ -91,13 +94,17 @@ def run(args):
         total_universal += len([d for d in domains if str(d).startswith("applinks:")])
 
         if score >= 5:
-            rows.append({
-                "name": app.get("CFBundleDisplayName") or app.get("CFBundleName") or bundle_id,
-                "bundle": bundle_id,
-                "score": score,
-                "stars": stars(score),
-                "reasons": reasons,
-            })
+            rows.append(
+                {
+                    "name": app.get("CFBundleDisplayName")
+                    or app.get("CFBundleName")
+                    or bundle_id,
+                    "bundle": bundle_id,
+                    "score": score,
+                    "stars": stars(score),
+                    "reasons": reasons,
+                }
+            )
 
     rows.sort(key=lambda r: r["score"], reverse=True)
 

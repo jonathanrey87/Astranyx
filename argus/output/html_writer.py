@@ -93,26 +93,25 @@ def write_html_report(report: dict, output_path: Path) -> None:
 
     generated = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
 
-    category_rows = "\n".join(
-        f"""
+    category_rows = "\n".join(f"""
         <tr>
             <td>{escape(category)}</td>
             <td>{count}</td>
             <td><span class="bar">{_bar(count, max_score)}</span></td>
         </tr>
-        """
-        for category, count in category_totals.items()
+        """ for category, count in category_totals.items())
+
+    endpoint_items = (
+        "\n".join(
+            f"<li><code>{escape(route)}</code></li>" for route in interesting_routes
+        )
+        or "<li>No high-value routes identified.</li>"
     )
 
-    endpoint_items = "\n".join(
-        f"<li><code>{escape(route)}</code></li>"
-        for route in interesting_routes
-    ) or "<li>No high-value routes identified.</li>"
-
-    service_items = "\n".join(
-        f"<li>{escape(service)}</li>"
-        for service in external_services
-    ) or "<li>No common third-party services identified.</li>"
+    service_items = (
+        "\n".join(f"<li>{escape(service)}</li>" for service in external_services)
+        or "<li>No common third-party services identified.</li>"
+    )
 
     top_files = sorted(
         summary.items(),
@@ -120,16 +119,13 @@ def write_html_report(report: dict, output_path: Path) -> None:
         reverse=True,
     )[:10]
 
-    file_rows = "\n".join(
-        f"""
+    file_rows = "\n".join(f"""
         <tr>
             <td>{escape(filename)}</td>
             <td>{sum(findings.values())}</td>
             <td>{escape(", ".join(findings.keys()))}</td>
         </tr>
-        """
-        for filename, findings in top_files
-    )
+        """ for filename, findings in top_files)
 
     html = f"""<!DOCTYPE html>
 <html lang="en">

@@ -9,7 +9,6 @@ from argus.intelligence.cwe import get_mapping
 from argus.intelligence.surface import build_attack_surface
 from argus.intelligence.risk import calculate, rating
 
-
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 
 
@@ -70,7 +69,7 @@ def render_source_preview(finding):
         out += (
             f'<div class="{cls}">'
             f'<span class="ln">{ln:4}</span> '
-            f'{html.escape(code)}'
+            f"{html.escape(code)}"
             "</div>"
         )
 
@@ -81,12 +80,7 @@ def render_surface_rows(attack_surface):
     rows = ""
 
     for key, value in attack_surface.items():
-        rows += (
-            "<tr>"
-            f"<td>{html.escape(str(key))}</td>"
-            f"<td>{value}</td>"
-            "</tr>"
-        )
+        rows += "<tr>" f"<td>{html.escape(str(key))}</td>" f"<td>{value}</td>" "</tr>"
 
     return rows
 
@@ -141,18 +135,22 @@ def render_finding_rows(findings):
 def write_csv(findings, output_dir):
     with (output_dir / "findings.csv").open("w", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["severity", "confidence", "category", "file", "line", "reason", "evidence"])
+        writer.writerow(
+            ["severity", "confidence", "category", "file", "line", "reason", "evidence"]
+        )
 
         for item in findings:
-            writer.writerow([
-                item.severity,
-                item.confidence,
-                item.category,
-                item.file,
-                item.line,
-                item.reason,
-                item.evidence,
-            ])
+            writer.writerow(
+                [
+                    item.severity,
+                    item.confidence,
+                    item.category,
+                    item.file,
+                    item.line,
+                    item.reason,
+                    item.evidence,
+                ]
+            )
 
 
 def copy_assets(output_dir):
