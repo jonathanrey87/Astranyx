@@ -17,250 +17,307 @@
 
 ══════════════════════════════════════════════════════════════════════
 
-Static analysis is only the beginning.
+# Argus
 
-Argus correlates source code, attack surfaces, confidence,
-risk, and security intelligence into actionable reports that
-help security researchers and developers focus on what matters.
+Argus is an alpha-stage security analysis and threat-intelligence framework for reviewing source code, JavaScript bundles, and WordPress plugins.
 
-══════════════════════════════════════════════════════════════════════
+It combines pattern-based discovery, data-flow analysis, validation evidence, confidence scoring, attack-surface classification, and report generation. Argus is designed to help analysts distinguish observable behavior from security findings that have demonstrated impact.
 
-        THREAT INTELLIGENCE AUTOMATION FRAMEWORK
+> Current version: `3.0.0a1`  
+> Status: Alpha — interfaces and report formats may change.
 
-        Observe • Correlate • Prioritize • Defend
-                    SOURCE CODE
+## Core principles
 
-                         │
+Argus follows four operating principles:
 
-                         ▼
+- **Observe** — identify routes, sinks, trust boundaries, and security-relevant patterns.
+- **Correlate** — connect findings with validation routines, data flow, and context.
+- **Prioritize** — rank findings using evidence, confidence, and demonstrated impact.
+- **Defend** — produce actionable reports and remediation guidance.
 
-             STATIC ANALYSIS ENGINE
+Argus records evidence without assuming that every suspicious response or code pattern is exploitable.
 
-                         │
+## Implemented capabilities
 
-                         ▼
+### JavaScript analysis
 
-          THREAT INTELLIGENCE CORRELATION
+Argus can analyze directories containing JavaScript bundles and identify patterns associated with:
 
-        CWE • OWASP • CVSS • MITRE • Risk
+- Network requests
+- Authentication and OAuth
+- GraphQL
+- Uploads
+- Administrative functionality
+- Collaboration features
+- Application routes
 
-                         │
+Results can be written to JSON and associated with an Argus investigation workspace.
 
-                         ▼
+### WordPress plugin analysis
 
-             ATTACK SURFACE DISCOVERY
+The WordPress scanner includes checks for:
 
-                         │
+- Public REST routes
+- Missing authorization checks
+- Dynamic includes
+- Deserialization
+- SSRF sinks
+- SQL queries
+- React dangerous sinks
+- Upload functionality
+- Taint-flow relationships
 
-                         ▼
+The analyzer applies nearby validation and safe-pattern evidence to reduce noise.
 
-              SOURCE FLOW RECONSTRUCTION
+### Analysis framework
 
-                         │
+The analysis package currently includes:
 
-                         ▼
+- Data-flow graphs
+- Call graphs
+- Trust classification
+- Taint analysis
+- Validation-routine detection
+- Evidence-based finding decisions
+- Pluggable analysis stages
+- A default evidence-analysis pipeline
 
-             INTERACTIVE INTELLIGENCE REPORT
-               ARGUS ANALYSIS ENGINE
+### Evidence gate
 
-                     Rule Engine
-                         │
-                         ▼
-               Intelligence Engine
-                         │
-                         ▼
-                 Confidence Engine
-                         │
-                         ▼
-                Attack Surface Graph
-                         │
-                         ▼
-                  Report Generator
-═══════════════════════════════════════════════════════════════
+The evidence gate rejects findings that lack observable security impact.
 
-ARGUS SECURITY INTELLIGENCE REPORT
+Current decision categories include:
 
-Risk Level          HIGH
+| Category | Required evidence |
+|---|---|
+| PII disclosure | A non-empty sensitive value |
+| CRLF/header injection | A separate injected response header |
+| Open redirect | A final destination outside trusted domains |
+| CORS | Cross-origin access to authenticated sensitive data |
+| HTTP 500 | Data exposure, authorization impact, stack disclosure, or measurable availability impact |
+| GraphQL | Unauthorized protected data |
+| Health endpoint | Sensitive operational data rather than status alone |
 
-Confidence          92%
+A successful query, wildcard CORS header, generic server error, or public health response is not automatically considered reportable.
 
-Findings            197
+### Reporting
 
-Attack Surface      43
+Argus contains support for:
 
-CWE Coverage        28
+- HTML
+- Markdown
+- JSON
+- CSV
+- SARIF
+- Source previews
+- Confidence summaries
+- Risk summaries
+- Attack-surface classification
 
-HTML • JSON • CSV • SARIF
+## Requirements
 
-═══════════════════════════════════════════════════════════════
-                    ARGUS CORE
+- Python 3.11 or newer
+- Linux, macOS, or another Python-compatible environment
+- A virtual environment is recommended
 
-                         │
+The current alpha imports OpenTelemetry and Arize tracing modules at CLI startup. Until runtime dependencies are declared in `pyproject.toml`, install them manually:
 
-      ┌──────────────────┼──────────────────┐
+```bash
+python -m venv venv
+source venv/bin/activate
 
-      ▼                  ▼                  ▼
+python -m pip install --upgrade pip
+python -m pip install -e .
+python -m pip install opentelemetry-api arize-otel
+```
 
- Scanner Engine   Intelligence Engine   Report Engine
+For development and testing:
 
-      ▼                  ▼                  ▼
+```bash
+python -m pip install pytest
+```
 
- WordPress         Risk Correlation      HTML
+## Command-line interface
 
- Laravel           CWE Mapping           SARIF
+Show available commands:
 
- Django            OWASP                 JSON
+```bash
+python -m argus.cli --help
+```
 
- Spring            CVSS                  CSV
+### Analyze JavaScript
 
- Flask             Confidence
+```bash
+python -m argus.cli js analyze ./path/to/javascript
+```
 
-                   Recommendations
-MISSION ROADMAP
+Write the report to a specific file:
 
-████████████████████████████████
+```bash
+python -m argus.cli js analyze ./path/to/javascript \
+  --output report.json
+```
 
-ARGUS 2.0
+Associate results with an investigation:
 
-✓ Modular Scanner
+```bash
+python -m argus.cli js analyze ./path/to/javascript \
+  --investigation investigations/INV-YYYYMMDD-HHMMSS
+```
 
-✓ Rule Engine
+### Audit a WordPress plugin
 
-✓ Intelligence Layer
+```bash
+python -m argus.cli wordpress ./path/to/plugin
+```
 
-✓ Risk Engine
+Only analyze plugins and code that you own or are authorized to assess.
 
-✓ HTML Dashboard
+### Create an investigation workspace
 
-✓ SARIF
+```bash
+python -m argus.cli investigate
+```
 
-✓ Source Preview
+The command creates a timestamped workspace containing directories for analysis, evidence, logs, reports, screenshots, JavaScript, and notes.
 
-✓ Attack Surface
+### Generate reports
 
-✓ Template Renderer
-────────────────────────────────────
+```bash
+python -m argus.cli report ./path/to/report.json
+```
 
-ARGUS 2.1
+## Evidence-pipeline example
 
-Cross-file Taint
+```python
+from argus.analysis.pipeline import build_default_pipeline
 
-Framework Intelligence
+pipeline = build_default_pipeline()
 
-Baseline Analysis
+result = pipeline.execute(
+    {
+        "finding_evidence": [
+            {
+                "category": "graphql",
+                "protected_data": False,
+            },
+            {
+                "category": "http_500",
+                "data_exposure": True,
+            },
+        ]
+    }
+)
 
-Plugin SDK
+for decision in result["evidence_decisions"]:
+    print(decision.reportable, decision.reason)
 
-────────────────────────────────────
+print("Reportable findings:", result["reportable_findings"])
+```
 
-ARGUS 3.0
+In this example, anonymous GraphQL execution without protected data is rejected, while a server error with demonstrated data exposure is retained.
 
-AI Correlation
+## Project structure
 
-Call Graphs
+```text
+argus/
+├── analysis/       Evidence gates, pipeline, taint, and validation
+├── commands/       CLI command implementations
+├── core/           Reports, HTML, SARIF, and source previews
+├── graph/          Call, data-flow, and trust graphs
+├── intelligence/   Classification, scoring, risk, and recommendations
+├── investigation/  Investigation workspace management
+├── modules/        Language and artifact analyzers
+├── output/         HTML and Markdown writers
+├── parsers/        Parser interfaces
+├── plugins/        Analysis and workflow plugins
+├── services/       Checklists, playbooks, data, and status
+└── wordpress/      WordPress scanning and analysis
+```
 
-Historical Intelligence
+## Testing
 
-Enterprise Dashboard
+Run the complete test suite:
 
-Cloud Platform
-══════════════════════════════════════════════════════════════
+```bash
+python -m pytest -q
+```
 
-ARGUS
+The current suite covers:
 
-Observe Everything.
+- Evidence decisions
+- Analysis-pipeline execution
+- Validation detection
+- Taint analysis
+- Intermediate representation
+- Call graphs
+- Data-flow graphs
+- Trust analysis
+- Parsers
+- Reports
+- Review workflows
+- Checklists
+- Playbooks
+- Status and threat functionality
 
-Correlate Everything.
+## Tracing
 
-Prioritize Everything.
+Argus supports optional Arize/OpenTelemetry tracing.
 
-══════════════════════════════════════════════════════════════
-WHY ARGUS?
+Set both variables before running the CLI:
 
-Because static analysis shouldn't stop at pattern matching.
+```bash
+export ARIZE_SPACE_ID='your-space-id'
+export ARIZE_API_KEY='your-api-key'
+```
 
-Argus asks questions like:
+If tracing credentials are absent, Argus is intended to run without exporting traces.
 
-Can an attacker actually reach this code?
-Is there authentication?
-Is authorization enforced?
-Is a nonce present?
-Is input sanitized?
-Is the dangerous function actually exploitable?
-What is the confidence?
-What should be fixed first?
+Never commit tracing credentials, session tokens, cookies, or API keys.
 
-Finding issues is important.
+## Development status
 
-Prioritizing them is intelligence.
+Argus is under active development. Current limitations include:
 
-╔══════════════════════════════╗
-║           OBSERVE            ║
-╚══════════════════════════════╝
+- Alpha APIs and data formats
+- Runtime dependencies are not yet fully declared in `pyproject.toml`
+- The evidence pipeline is available through `build_default_pipeline()` but is not yet connected to every scanner and report path
+- Some modules use different finding models
+- CLI and investigation behavior are still evolving
+- Documentation and packaging require further validation
 
-Discover attack surfaces.
+## Roadmap
 
-Enumerate trust boundaries.
+Planned work includes:
 
-Map application behavior.
+- Unified finding and evidence models
+- Evidence-gate integration across scanners
+- Cross-file taint propagation
+- Historical comparison and baselines
+- Framework-specific analyzers
+- Expanded report schemas
+- Plugin interfaces
+- Dependency and packaging cleanup
+- Additional integration tests
 
+Roadmap items are plans, not completed capabilities.
 
+## Responsible use
 
-╔══════════════════════════════╗
-║          CORRELATE           ║
-╚══════════════════════════════╝
+Use Argus only on:
 
-Connect code with context.
+- Systems and code you own
+- Local test environments
+- Explicitly authorized security assessments
+- Bug-bounty assets that are clearly in scope
 
-Enrich findings.
+Avoid collecting unrelated users’ private data, bypassing rate limits, causing availability impact, or treating scanner output as proof without independent validation.
 
-Reduce uncertainty.
+## Author
 
+Created by Jonathan Mendiola.
 
+## License
 
-╔══════════════════════════════╗
-║         PRIORITIZE           ║
-╚══════════════════════════════╝
-
-Confidence.
-
-Risk.
-
-Business impact.
-
-Attack surface.
-
-Developer effort.
-
-
-
-╔══════════════════════════════╗
-║           DEFEND             ║
-╚══════════════════════════════╝
-
-Generate intelligence.
-
-Guide remediation.
-
-Improve software security.
-══════════════════════════════════════════════════════════════════════
-
-Transforming Code Into Intelligence.
-
-Created by Jonathan Mendiola
-
-MIT License
-
-Version 2.0.0
-
-══════════════════════════════════════════════════════════════════════
-
-
-
-
-
-
-
-
-
+A `LICENSE` file exists in the repository but currently contains no license text. Add the intended license before distributing the project.
 

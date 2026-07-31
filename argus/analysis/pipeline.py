@@ -11,9 +11,7 @@ class AnalysisResult:
 
 
 class AnalysisStage:
-    """
-    Base class for all Orion analysis stages.
-    """
+    """Base class for all Orion analysis stages."""
 
     name = "stage"
 
@@ -22,16 +20,32 @@ class AnalysisStage:
 
 
 class AnalysisPipeline:
+    """Executes registered analysis stages in order."""
 
     def __init__(self):
         self.stages: list[AnalysisStage] = []
 
-    def register(self, stage: AnalysisStage):
+    def register(self, stage: AnalysisStage) -> None:
         self.stages.append(stage)
 
-    def execute(self, context: dict):
-
+    def execute(self, context: dict) -> dict:
         for stage in self.stages:
             stage.run(context)
 
         return context
+
+
+def build_default_pipeline() -> AnalysisPipeline:
+    """
+    Builds the default Orion analysis pipeline.
+
+    The local import avoids a circular import because EvidenceGateStage
+    inherits from AnalysisStage.
+    """
+    from argus.analysis.evidence_gate import EvidenceGateStage
+
+    pipeline = AnalysisPipeline()
+    pipeline.register(EvidenceGateStage())
+
+    return pipeline
+
