@@ -9,11 +9,13 @@ class ValidationEvidence:
     validator: str
     category: str
     confidence: float
+    location: str | None = None
 
 
 class ValidationEngine:
     """
     Detects observable validation routines.
+
     It records evidence rather than deciding whether code is safe.
     """
 
@@ -34,7 +36,7 @@ class ValidationEngine:
         self.validators = validators or self.DEFAULT_VALIDATORS
 
     def analyze(self, calls: Iterable[str]) -> list[ValidationEvidence]:
-        findings = []
+        findings: list[ValidationEvidence] = []
 
         for call in calls:
             lowered = call.lower()
@@ -46,6 +48,7 @@ class ValidationEngine:
                             validator=call,
                             category=category,
                             confidence=0.95,
+                            location=call,
                         )
                     )
 
