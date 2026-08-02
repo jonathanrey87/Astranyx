@@ -1,11 +1,18 @@
-# Argus
+<div align="center">
 
-Argus is an alpha-stage security analysis and threat-intelligence framework for reviewing source code, JavaScript bundles, and WordPress plugins.
+# ARGUS
 
-It combines pattern-based discovery, data-flow analysis, validation evidence, confidence scoring, attack-surface classification, and report generation. Argus is designed to help analysts distinguish observable behavior from security findings that have demonstrated impact.
+**Threat Intelligence Automation Framework**
 
-> Current version: `3.0.0a1`  
-> Status: Alpha — interfaces and report formats may change.
+Observe • Correlate • Prioritize • Defend
+
+`Version 3.0.0a1` · `Alpha` · `Python 3.11+`
+
+</div>
+
+Argus is a security-analysis framework for reviewing source code, JavaScript bundles, and WordPress plugins.
+
+It combines pattern discovery, data-flow analysis, validation evidence, confidence scoring, attack-surface classification, and reporting—helping analysts separate suspicious behavior from findings with demonstrated security impact.
 
 ## Core principles
 
@@ -17,7 +24,6 @@ Argus follows four operating principles:
 - **Defend** — produce actionable reports and remediation guidance.
 
 Argus records evidence without assuming that every suspicious response or code pattern is exploitable.
-
 
 ## Implemented capabilities
 
