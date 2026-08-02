@@ -1,22 +1,3 @@
- █████╗ ██████╗  ██████╗ ██╗   ██╗███████╗
-██╔══██╗██╔══██╗██╔════╝ ██║   ██║██╔════╝
-███████║██████╔╝██║  ███╗██║   ██║███████╗
-██╔══██║██╔══██╗██║   ██║██║   ██║╚════██║
-██║  ██║██║  ██║╚██████╔╝╚██████╔╝███████║
-╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝ ╚══════╝
-
-══════════════════════════════════════════════════════════════════════
-
-                           ◉ ARGUS
-
-              THREAT INTELLIGENCE AUTOMATION FRAMEWORK
-
-                 Transforming Code Into Intelligence
-
-               Observe • Correlate • Prioritize • Defend
-
-══════════════════════════════════════════════════════════════════════
-
 # Argus
 
 Argus is an alpha-stage security analysis and threat-intelligence framework for reviewing source code, JavaScript bundles, and WordPress plugins.
@@ -36,6 +17,7 @@ Argus follows four operating principles:
 - **Defend** — produce actionable reports and remediation guidance.
 
 Argus records evidence without assuming that every suspicious response or code pattern is exploitable.
+
 
 ## Implemented capabilities
 
