@@ -1,20 +1,31 @@
+import json
 from datetime import datetime, timezone
 from pathlib import Path
-import json
 
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
+
 
 tracer = trace.get_tracer("argus.investigation")
 
 
 def run(args):
     """Create a new Argus investigation workspace."""
+    analyst = getattr(
+        args,
+        "analyst",
+        "Jonathan Mendiola",
+    )
+    target = getattr(args, "target", None)
 
-    with tracer.start_as_current_span("argus.investigation.create") as span:
+    with tracer.start_as_current_span(
+        "argus.investigation.create"
+    ) as span:
         timestamp = datetime.now(timezone.utc)
 
-        investigation_id = timestamp.strftime("INV-%Y%m%d-%H%M%S")
+        investigation_id = timestamp.strftime(
+            "INV-%Y%m%d-%H%M%S"
+        )
         root = Path("investigations") / investigation_id
 
         directories = (
@@ -31,14 +42,17 @@ def run(args):
 
         try:
             for directory in directories:
-                (root / directory).mkdir(parents=True, exist_ok=True)
+                (root / directory).mkdir(
+                    parents=True,
+                    exist_ok=True,
+                )
 
             metadata = {
                 "id": investigation_id,
                 "created": timestamp.isoformat(),
                 "status": "created",
-                "target": None,
-                "analyst": "Jonathan Mendiola",
+                "target": target,
+                "analyst": analyst,
                 "argus_version": "3.0.0a1",
                 "trace_enabled": True,
                 "modules": [],
@@ -54,7 +68,8 @@ def run(args):
             metadata_path = root / "metadata.json"
 
             metadata_path.write_text(
-                json.dumps(metadata, indent=2)
+                json.dumps(metadata, indent=2),
+                encoding="utf-8",
             )
 
             span.set_attribute(
@@ -72,12 +87,20 @@ def run(args):
                 len(directories),
             )
 
+            if target:
+                span.set_attribute(
+                    "argus.target",
+                    str(target),
+                )
+
             span.set_status(Status(StatusCode.OK))
 
-            print(f"[+] Investigation created")
+            print("[+] Investigation created")
             print(f"    ID: {investigation_id}")
             print(f"    Path: {root}")
             print(f"    Metadata: {metadata_path}")
+
+            return root
 
         except Exception as exc:
             span.record_exception(exc)

@@ -37,14 +37,14 @@ def main():
 
     parser = argparse.ArgumentParser(
         prog="argus",
-        description="Argus Threat Intelligence Automation Framework",
+        description=(
+            "Argus Threat Intelligence Automation Framework"
+        ),
     )
 
     subparsers = parser.add_subparsers(dest="command")
 
-    # ---------------------------------------------------------
     # JavaScript commands
-    # ---------------------------------------------------------
     js_parser = subparsers.add_parser(
         "js",
         help="JavaScript analysis",
@@ -80,9 +80,7 @@ def main():
 
     analyze_parser.set_defaults(func=run_js)
 
-    # ---------------------------------------------------------
     # Report command
-    # ---------------------------------------------------------
     report_parser = subparsers.add_parser(
         "report",
         help="Generate HTML and Markdown reports",
@@ -95,9 +93,7 @@ def main():
 
     report_parser.set_defaults(func=run_report)
 
-    # ---------------------------------------------------------
     # WordPress command
-    # ---------------------------------------------------------
     wordpress_parser = subparsers.add_parser(
         "wordpress",
         help="Audit a WordPress plugin",
@@ -110,12 +106,21 @@ def main():
 
     wordpress_parser.set_defaults(func=run_wordpress)
 
-    # ---------------------------------------------------------
     # Investigation command
-    # ---------------------------------------------------------
     investigation_parser = subparsers.add_parser(
         "investigate",
         help="Create a new investigation workspace",
+    )
+
+    investigation_parser.add_argument(
+        "--analyst",
+        default="Jonathan Mendiola",
+        help="Name of the analyst creating the investigation",
+    )
+
+    investigation_parser.add_argument(
+        "--target",
+        help="Authorized target or local analysis path",
     )
 
     investigation_parser.set_defaults(
@@ -157,6 +162,18 @@ def main():
             span.set_attribute(
                 "argus.investigation.path",
                 str(args.investigation),
+            )
+
+        if getattr(args, "analyst", None):
+            span.set_attribute(
+                "argus.analyst",
+                args.analyst,
+            )
+
+        if getattr(args, "target", None):
+            span.set_attribute(
+                "argus.target",
+                args.target,
             )
 
         args.func(args)
