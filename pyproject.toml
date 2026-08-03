@@ -31,8 +31,10 @@ classifiers = [
     "Topic :: Security",
     "Topic :: Software Development :: Quality Assurance"
 ]
-dependencies = []
-
+dependencies = [
+	"arize-otel>=0.13.0,<0.14",
+	"opentelemetry-api>=1.44.0,<2",
+]
 [project.scripts]
 argus = "argus.cli:main"
 
