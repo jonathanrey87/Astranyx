@@ -54,9 +54,7 @@ def test_analyze_writes_json_report(tmp_path):
     )
 
     assert output.is_file()
-    assert json.loads(
-        output.read_text(encoding="utf-8")
-    ) == report
+    assert json.loads(output.read_text(encoding="utf-8")) == report
 
 
 def test_analyze_rejects_missing_path(tmp_path):
@@ -130,4 +128,3 @@ def test_analyze_skips_unreadable_files(
     assert report["files_analyzed"] == 1
     assert "good.js" in report["summary"]
     assert "broken.js" not in report["summary"]
-
