@@ -145,6 +145,16 @@ python -m argus.cli js analyze ./path/to/javascript \
   --output report.json
 ```
 
+Recursively discover JavaScript files in nested directories:
+
+```bash
+python -m argus.cli js analyze ./path/to/javascript \
+  --recursive \
+  --output report.json
+```
+
+Recursive reports preserve paths relative to the analysis root, such as `assets/js/app.js`.
+
 Associate results with an investigation:
 
 ```bash
