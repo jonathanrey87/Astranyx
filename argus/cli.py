@@ -1,5 +1,6 @@
 import argparse
 
+from argus import __version__
 from argus.commands import report as report_command
 from argus.investigation import run as investigation_command
 from argus.modules import js
@@ -41,6 +42,12 @@ def main():
         description=(
             "Argus Threat Intelligence Automation Framework"
         ),
+    )
+
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
     )
 
     subparsers = parser.add_subparsers(dest="command")
@@ -135,7 +142,6 @@ def main():
     )
 
     args = parser.parse_args()
-
     args.trace_enabled = tracer is not None
 
     if not hasattr(args, "func"):
@@ -179,16 +185,16 @@ def main():
                 True,
             )
 
-        if getattr(args, "analyst", None):
-            span.set_attribute(
-                "argus.analyst",
-                args.analyst,
-            )
-
         if getattr(args, "target", None):
             span.set_attribute(
                 "argus.target",
-                args.target,
+                str(args.target),
+            )
+
+        if getattr(args, "analyst", None):
+            span.set_attribute(
+                "argus.analyst",
+                str(args.analyst),
             )
 
         args.func(args)
