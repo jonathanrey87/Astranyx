@@ -17,6 +17,9 @@ def run(args):
         "Jonathan Mendiola",
     )
     target = getattr(args, "target", None)
+    trace_enabled = bool(
+        getattr(args, "trace_enabled", False)
+    )
 
     with tracer.start_as_current_span(
         "argus.investigation.create"
@@ -54,7 +57,7 @@ def run(args):
                 "target": target,
                 "analyst": analyst,
                 "argus_version": "3.0.0a1",
-                "trace_enabled": True,
+                "trace_enabled": trace_enabled,
                 "modules": [],
                 "findings": {
                     "critical": 0,

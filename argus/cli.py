@@ -136,6 +136,8 @@ def main():
 
     args = parser.parse_args()
 
+    args.trace_enabled = tracer is not None
+
     if not hasattr(args, "func"):
         parser.print_help()
         return

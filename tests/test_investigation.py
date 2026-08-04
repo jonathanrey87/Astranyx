@@ -55,6 +55,7 @@ def test_create_investigation_workspace(
     assert metadata["id"] == workspace.name
     assert metadata["status"] == "created"
     assert metadata["target"] is None
+    assert metadata["trace_enabled"] is False
     assert metadata["modules"] == []
     assert metadata["findings"] == {
         "critical": 0,
