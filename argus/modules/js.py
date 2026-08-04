@@ -56,10 +56,10 @@ def _validate_source(base, span):
         )
 
 
-def _discover_javascript_files(base, span):
-    """Discover top-level JavaScript files."""
+def _discover_javascript_files(base, span, recursive=False):
+    """Discover JavaScript files in the requested scope."""
     with tracer.start_as_current_span("argus.js.discover_files") as discovery_span:
-        js_files = sorted(base.glob("*.js"))
+        js_files = sorted(base.rglob("*.js") if recursive else base.glob("*.js"))
 
         discovery_span.set_attribute(
             "argus.javascript.files_discovered",
@@ -106,7 +106,7 @@ def _scan_javascript_file(file_path):
     return text, findings, routes
 
 
-def _scan_javascript_files(js_files):
+def _scan_javascript_files(js_files, base):
     """Scan JavaScript files and collect results."""
     results = {}
     routes = set()
@@ -115,6 +115,7 @@ def _scan_javascript_files(js_files):
 
     with tracer.start_as_current_span("argus.js.scan_files") as scan_span:
         for file_path in js_files:
+            report_path = file_path.relative_to(base).as_posix()
             with tracer.start_as_current_span("argus.js.scan_file") as file_span:
                 file_span.set_attribute(
                     "argus.file.name",
@@ -164,7 +165,7 @@ def _scan_javascript_files(js_files):
                 routes.update(file_routes)
 
                 if findings:
-                    results[file_path.name] = findings
+                    results[report_path] = findings
 
         processed_files = len(js_files) - failed_files
 
@@ -349,7 +350,7 @@ def _set_final_span_attributes(
     span.set_status(Status(StatusCode.OK))
 
 
-def analyze(path, output=None, investigation=None):
+def analyze(path, output=None, investigation=None, recursive=False):
     """
     Analyze JavaScript files for security-related patterns and routes.
 
@@ -404,6 +405,7 @@ def analyze(path, output=None, investigation=None):
         js_files = _discover_javascript_files(
             base,
             span,
+            recursive=recursive,
         )
 
         (
@@ -411,7 +413,7 @@ def analyze(path, output=None, investigation=None):
             routes,
             failed_files,
             total_findings,
-        ) = _scan_javascript_files(js_files)
+        ) = _scan_javascript_files(js_files, base)
 
         report = _build_report(
             base,

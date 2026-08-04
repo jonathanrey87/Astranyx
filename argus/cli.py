@@ -13,6 +13,7 @@ def run_js(args):
         path=args.path,
         output=args.output,
         investigation=args.investigation,
+        recursive=args.recursive,
     )
 
 
@@ -76,6 +77,12 @@ def main():
             "Path to an Argus investigation workspace, "
             "for example investigations/INV-20260721-171856"
         ),
+    )
+
+    analyze_parser.add_argument(
+        "--recursive",
+        action="store_true",
+        help="Discover JavaScript files in nested directories",
     )
 
     analyze_parser.set_defaults(func=run_js)
@@ -162,6 +169,12 @@ def main():
             span.set_attribute(
                 "argus.investigation.path",
                 str(args.investigation),
+            )
+
+        if getattr(args, "recursive", False):
+            span.set_attribute(
+                "argus.javascript.recursive",
+                True,
             )
 
         if getattr(args, "analyst", None):
