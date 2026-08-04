@@ -1,9 +1,11 @@
 import json
 
 from argus import __version__
-
 from argus.investigation.manager import InvestigationManager
-from argus.investigation.run import run
+from argus.investigation.run import (
+    _unique_workspace_root,
+    run,
+)
 
 
 EXPECTED_DIRECTORIES = {
@@ -52,12 +54,14 @@ def test_create_investigation_workspace(
     metadata_path = workspace / "metadata.json"
     assert metadata_path.is_file()
 
-    metadata = json.loads(metadata_path.read_text())
+    metadata = json.loads(
+        metadata_path.read_text(encoding="utf-8")
+    )
 
     assert metadata["id"] == workspace.name
     assert metadata["status"] == "created"
-    assert metadata["argus_version"] == __version__
     assert metadata["target"] is None
+    assert metadata["argus_version"] == __version__
     assert metadata["trace_enabled"] is False
     assert metadata["modules"] == []
     assert metadata["findings"] == {
@@ -121,3 +125,34 @@ def test_investigation_manager_lifecycle(
         "low": 0,
         "info": 4,
     }
+
+
+def test_unique_workspace_root(tmp_path):
+    parent = tmp_path / "investigations"
+    parent.mkdir()
+
+    investigation_id = "INV-20260804-120000"
+
+    first = _unique_workspace_root(
+        parent,
+        investigation_id,
+    )
+    assert first.name == investigation_id
+    first.mkdir()
+
+    second = _unique_workspace_root(
+        parent,
+        investigation_id,
+    )
+    assert second.name == (
+        f"{investigation_id}-01"
+    )
+    second.mkdir()
+
+    third = _unique_workspace_root(
+        parent,
+        investigation_id,
+    )
+    assert third.name == (
+        f"{investigation_id}-02"
+    )

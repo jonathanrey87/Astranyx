@@ -1,14 +1,31 @@
 import json
-
-from argus import __version__
 from datetime import datetime, timezone
 from pathlib import Path
 
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
+from argus import __version__
+
 
 tracer = trace.get_tracer("argus.investigation")
+
+
+def _unique_workspace_root(
+    parent: Path,
+    investigation_id: str,
+) -> Path:
+    """Return a workspace path that does not already exist."""
+    root = parent / investigation_id
+    suffix = 1
+
+    while root.exists():
+        root = parent / (
+            f"{investigation_id}-{suffix:02d}"
+        )
+        suffix += 1
+
+    return root
 
 
 def run(args):
@@ -28,10 +45,14 @@ def run(args):
     ) as span:
         timestamp = datetime.now(timezone.utc)
 
-        investigation_id = timestamp.strftime(
+        base_id = timestamp.strftime(
             "INV-%Y%m%d-%H%M%S"
         )
-        root = Path("investigations") / investigation_id
+        root = _unique_workspace_root(
+            Path("investigations"),
+            base_id,
+        )
+        investigation_id = root.name
 
         directories = (
             "analysis",
@@ -81,15 +102,17 @@ def run(args):
                 "argus.investigation.id",
                 investigation_id,
             )
-
             span.set_attribute(
                 "argus.metadata.file",
                 str(metadata_path),
             )
-
             span.set_attribute(
                 "argus.workspace.directories",
                 len(directories),
+            )
+            span.set_attribute(
+                "argus.trace.enabled",
+                trace_enabled,
             )
 
             if target:
