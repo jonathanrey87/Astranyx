@@ -1,6 +1,6 @@
+import os
 from argparse import Namespace
 from pathlib import Path
-import os
 
 from argus.plugins import evidence
 

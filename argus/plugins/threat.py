@@ -1,5 +1,6 @@
-from argus.services.data import load_apps
 from pathlib import Path
+
+from argus.services.data import load_apps
 
 
 def schemes(app):

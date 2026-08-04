@@ -1,6 +1,6 @@
-from datetime import datetime
-from pathlib import Path
 import re
+from datetime import UTC, datetime
+from pathlib import Path
 
 
 def slugify(name: str) -> str:
@@ -25,7 +25,7 @@ def create_workspace(name: str) -> Path:
     for folder in folders:
         folder.mkdir(parents=True, exist_ok=True)
 
-    started = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    started = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
 
     (root / "README.md").write_text(f"""# Investigation: {name}
 

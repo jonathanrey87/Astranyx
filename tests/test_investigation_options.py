@@ -18,11 +18,7 @@ def test_custom_analyst_and_target(
 
     workspace = run(args)
 
-    metadata = json.loads(
-        (workspace / "metadata.json").read_text(
-            encoding="utf-8"
-        )
-    )
+    metadata = json.loads((workspace / "metadata.json").read_text(encoding="utf-8"))
 
     assert metadata["analyst"] == "Jonathan Mendiola"
     assert metadata["target"] == "authorized-local-test"
@@ -43,11 +39,7 @@ def test_trace_enabled_is_recorded(
 
     workspace = run(args)
 
-    metadata = json.loads(
-        (workspace / "metadata.json").read_text(
-            encoding="utf-8"
-        )
-    )
+    metadata = json.loads((workspace / "metadata.json").read_text(encoding="utf-8"))
 
     assert metadata["analyst"] == "Jonathan Mendiola"
     assert metadata["target"] == "authorized-local-test"

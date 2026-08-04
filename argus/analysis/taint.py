@@ -41,11 +41,7 @@ class TaintEngine:
                         source=source,
                         sink=sink,
                         trust=trust,
-                        validators=[
-                            v
-                            for v in validations
-                            if v.location == sink
-                        ],
+                        validators=[v for v in validations if v.location == sink],
                     )
                 )
 

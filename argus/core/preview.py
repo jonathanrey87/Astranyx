@@ -13,7 +13,7 @@ def source_preview(file_path, line_number, radius=5):
 
     try:
         lines = path.read_text(errors="ignore").splitlines()
-    except Exception:
+    except OSError:
         return []
 
     start = max(1, line_number - radius)

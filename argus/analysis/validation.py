@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
+from typing import ClassVar
 
 
 @dataclass(slots=True)
@@ -19,7 +20,7 @@ class ValidationEngine:
     It records evidence rather than deciding whether code is safe.
     """
 
-    DEFAULT_VALIDATORS = {
+    DEFAULT_VALIDATORS: ClassVar[dict[str, str]] = {
         "validate": "Validation",
         "sanitize": "Sanitization",
         "escape": "Output Encoding",

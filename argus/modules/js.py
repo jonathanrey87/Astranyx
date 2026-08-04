@@ -128,7 +128,7 @@ def _scan_javascript_files(js_files, base):
 
                 try:
                     text, findings, file_routes = _scan_javascript_file(file_path)
-                except Exception as exc:
+                except OSError as exc:
                     failed_files += 1
 
                     file_span.record_exception(exc)

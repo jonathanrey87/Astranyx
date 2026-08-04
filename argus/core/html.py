@@ -1,13 +1,13 @@
-from pathlib import Path
 import csv
 import html
 import json
 import shutil
+from pathlib import Path
 
 from argus.core.preview import source_preview
 from argus.intelligence.cwe import get_mapping
-from argus.intelligence.surface import build_attack_surface
 from argus.intelligence.risk import calculate, rating
+from argus.intelligence.surface import build_attack_surface
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
 

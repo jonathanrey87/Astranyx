@@ -12,9 +12,7 @@ def test_js_analysis_updates_investigation(
 
     run(None)
 
-    workspaces = list(
-        (tmp_path / "investigations").glob("INV-*")
-    )
+    workspaces = list((tmp_path / "investigations").glob("INV-*"))
     assert len(workspaces) == 1
 
     workspace = workspaces[0]
@@ -43,9 +41,7 @@ def test_js_analysis_updates_investigation(
     assert report["routes"] == ["/api/profile"]
     assert output.is_file()
 
-    metadata = json.loads(
-        (workspace / "metadata.json").read_text()
-    )
+    metadata = json.loads((workspace / "metadata.json").read_text())
 
     assert metadata["target"] == str(source)
     assert len(metadata["modules"]) == 1

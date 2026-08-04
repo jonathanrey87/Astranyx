@@ -1,5 +1,5 @@
-from pathlib import Path
 import html
+from pathlib import Path
 
 
 def markdown_template(workspace):

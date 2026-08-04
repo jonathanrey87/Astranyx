@@ -78,6 +78,7 @@ target-version = ["py313"]
 [tool.ruff]
 line-length = 88
 target-version = "py313"
+required-version = "==0.16.1"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

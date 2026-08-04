@@ -1,7 +1,8 @@
 from types import SimpleNamespace
-from argus.plugins import threat, focus
-from argus.services.data import load_apps
+
+from argus.plugins import focus, threat
 from argus.services.checklist import create as create_checklist
+from argus.services.data import load_apps
 
 
 def run(args):
@@ -11,7 +12,7 @@ def run(args):
 
     try:
         data = load_apps(args.metadata)
-    except Exception as e:
+    except (OSError, ValueError) as e:
         print("[-] Metadata load failed")
         print(e)
         return 1

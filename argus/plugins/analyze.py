@@ -1,4 +1,5 @@
 from pathlib import Path
+
 from argus.services.data import load_apps
 
 SENSITIVE_PERMISSIONS = [
@@ -76,7 +77,7 @@ def run(args):
 
     try:
         data = load_apps(args.file)
-    except Exception as e:
+    except (OSError, ValueError) as e:
         print(f"[-] Could not parse JSON: {e}")
         return 1
 

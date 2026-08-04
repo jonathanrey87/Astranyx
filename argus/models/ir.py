@@ -58,5 +58,5 @@ class IRModule:
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_path(cls, path: Path, language: str) -> "IRModule":
+    def from_path(cls, path: Path, language: str) -> IRModule:
         return cls(path=str(path), language=language)

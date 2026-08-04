@@ -9,9 +9,7 @@ def finding_to_result(finding):
 
     sev = finding.severity.lower()
 
-    if sev == "critical":
-        level = "error"
-    elif sev == "high":
+    if sev == "critical" or sev == "high":
         level = "error"
     elif sev == "medium":
         level = "warning"

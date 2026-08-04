@@ -1,12 +1,13 @@
-from argus.services.status import get_status
-from pathlib import Path
 import subprocess
+from pathlib import Path
+
+from argus.services.status import get_status
 
 
 def git_value(cmd):
     try:
         return subprocess.check_output(cmd, text=True).strip()
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         return "unknown"
 
 

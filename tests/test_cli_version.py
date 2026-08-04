@@ -28,6 +28,4 @@ def test_cli_version(
         main()
 
     assert exc_info.value.code == 0
-    assert capsys.readouterr().out.strip() == (
-        f"argus {__version__}"
-    )
+    assert capsys.readouterr().out.strip() == (f"argus {__version__}")

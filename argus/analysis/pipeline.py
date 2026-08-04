@@ -48,4 +48,3 @@ def build_default_pipeline() -> AnalysisPipeline:
     pipeline.register(EvidenceGateStage())
 
     return pipeline
-

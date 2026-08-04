@@ -1,6 +1,6 @@
-from pathlib import Path
+from datetime import UTC, datetime
 from html import escape
-from datetime import datetime
+from pathlib import Path
 
 
 def _total_by_category(summary: dict) -> dict:
@@ -91,7 +91,7 @@ def write_html_report(report: dict, output_path: Path) -> None:
     interesting_routes = _interesting_routes(routes)
     external_services = _external_services(routes)
 
-    generated = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+    generated = datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC")
 
     category_rows = "\n".join(f"""
         <tr>

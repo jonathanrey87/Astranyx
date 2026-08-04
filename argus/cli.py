@@ -39,9 +39,7 @@ def main():
 
     parser = argparse.ArgumentParser(
         prog="argus",
-        description=(
-            "Argus Threat Intelligence Automation Framework"
-        ),
+        description=("Argus Threat Intelligence Automation Framework"),
     )
 
     parser.add_argument(

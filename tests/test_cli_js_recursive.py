@@ -45,11 +45,7 @@ def test_recursive_javascript_cli(
 
     assert report_path.is_file()
 
-    report = json.loads(
-        report_path.read_text(
-            encoding="utf-8"
-        )
-    )
+    report = json.loads(report_path.read_text(encoding="utf-8"))
 
     assert report["files_analyzed"] == 1
     assert report["routes"] == ["/api/nested"]

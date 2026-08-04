@@ -26,11 +26,12 @@ def reduce_noise(finding, context):
     evidence = finding.evidence
     text = evidence + "\n" + context
 
-    if finding.category == "Dynamic Include":
-        if any(p in text for p in SAFE_INCLUDE_PATTERNS):
-            finding.confidence = min(finding.confidence, 2)
-            finding.reason = "Safe internal include pattern detected."
-            return finding
+    if finding.category == "Dynamic Include" and any(
+        pattern in text for pattern in SAFE_INCLUDE_PATTERNS
+    ):
+        finding.confidence = min(finding.confidence, 2)
+        finding.reason = "Safe internal include pattern detected."
+        return finding
 
     if finding.category == "SSRF Sink":
         if "php://input" in text:
@@ -45,16 +46,16 @@ def reduce_noise(finding, context):
             finding.reason = "Likely local file read pattern detected."
             return finding
 
-    if finding.category == "SQL Query":
-        if any(p in text for p in SAFE_SQL_PATTERNS):
-            finding.confidence = min(finding.confidence, 1)
-            finding.reason = "Prepared or escaped SQL pattern detected."
-            return finding
+    if finding.category == "SQL Query" and any(
+        pattern in text for pattern in SAFE_SQL_PATTERNS
+    ):
+        finding.confidence = min(finding.confidence, 1)
+        finding.reason = "Prepared or escaped SQL pattern detected."
+        return finding
 
-    if finding.category == "Deserialization":
-        if "allowed_classes" in text:
-            finding.confidence = min(finding.confidence, 1)
-            finding.reason = "allowed_classes protection detected."
-            return finding
+    if finding.category == "Deserialization" and "allowed_classes" in text:
+        finding.confidence = min(finding.confidence, 1)
+        finding.reason = "allowed_classes protection detected."
+        return finding
 
     return finding

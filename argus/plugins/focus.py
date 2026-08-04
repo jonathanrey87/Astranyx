@@ -1,4 +1,5 @@
 from pathlib import Path
+
 from argus.services.data import load_apps
 
 

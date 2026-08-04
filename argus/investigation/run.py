@@ -1,12 +1,11 @@
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode
 
 from argus import __version__
-
 
 tracer = trace.get_tracer("argus.investigation")
 
@@ -20,9 +19,7 @@ def _unique_workspace_root(
     suffix = 1
 
     while root.exists():
-        root = parent / (
-            f"{investigation_id}-{suffix:02d}"
-        )
+        root = parent / (f"{investigation_id}-{suffix:02d}")
         suffix += 1
 
     return root
@@ -36,18 +33,12 @@ def run(args):
         "Jonathan Mendiola",
     )
     target = getattr(args, "target", None)
-    trace_enabled = bool(
-        getattr(args, "trace_enabled", False)
-    )
+    trace_enabled = bool(getattr(args, "trace_enabled", False))
 
-    with tracer.start_as_current_span(
-        "argus.investigation.create"
-    ) as span:
-        timestamp = datetime.now(timezone.utc)
+    with tracer.start_as_current_span("argus.investigation.create") as span:
+        timestamp = datetime.now(UTC)
 
-        base_id = timestamp.strftime(
-            "INV-%Y%m%d-%H%M%S"
-        )
+        base_id = timestamp.strftime("INV-%Y%m%d-%H%M%S")
         root = _unique_workspace_root(
             Path("investigations"),
             base_id,
@@ -132,7 +123,5 @@ def run(args):
 
         except Exception as exc:
             span.record_exception(exc)
-            span.set_status(
-                Status(StatusCode.ERROR, str(exc))
-            )
+            span.set_status(Status(StatusCode.ERROR, str(exc)))
             raise

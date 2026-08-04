@@ -1,5 +1,5 @@
-from pathlib import Path
 import re
+from pathlib import Path
 
 REQUIRED_FILES = ["README.md", "notes.md", "timeline.md"]
 REQUIRED_DIRS = [

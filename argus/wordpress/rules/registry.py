@@ -1,12 +1,12 @@
 from argus.wordpress.rules.ajax import RULES as AJAX_RULES
+from argus.wordpress.rules.dangerous import RULES as DANGEROUS_RULES
+from argus.wordpress.rules.deserialization import RULES as DESERIALIZATION_RULES
+from argus.wordpress.rules.include import RULES as INCLUDE_RULES
+from argus.wordpress.rules.react import RULES as REACT_RULES
 from argus.wordpress.rules.rest import RULES as REST_RULES
 from argus.wordpress.rules.sql import RULES as SQL_RULES
 from argus.wordpress.rules.ssrf import RULES as SSRF_RULES
 from argus.wordpress.rules.upload import RULES as UPLOAD_RULES
-from argus.wordpress.rules.deserialization import RULES as DESERIALIZATION_RULES
-from argus.wordpress.rules.dangerous import RULES as DANGEROUS_RULES
-from argus.wordpress.rules.include import RULES as INCLUDE_RULES
-from argus.wordpress.rules.react import RULES as REACT_RULES
 
 PHP_RULES = (
     AJAX_RULES

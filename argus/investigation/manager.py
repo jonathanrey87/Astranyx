@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 
@@ -14,14 +14,10 @@ class InvestigationManager:
         self.load()
 
     def load(self):
-        self.data = json.loads(
-            self.metadata_path.read_text()
-        )
+        self.data = json.loads(self.metadata_path.read_text())
 
     def save(self):
-        self.metadata_path.write_text(
-            json.dumps(self.data, indent=2)
-        )
+        self.metadata_path.write_text(json.dumps(self.data, indent=2))
 
     def set_target(self, target):
         self.data["target"] = target
@@ -41,9 +37,7 @@ class InvestigationManager:
         module = {
             "name": name,
             "status": status,
-            "completed": datetime.now(
-                timezone.utc
-            ).isoformat(),
+            "completed": datetime.now(UTC).isoformat(),
         }
 
         if duration_ms is not None:
@@ -52,10 +46,7 @@ class InvestigationManager:
         if details:
             module.update(details)
 
-        self.data.setdefault(
-            "modules",
-            []
-        ).append(module)
+        self.data.setdefault("modules", []).append(module)
 
         self.save()
 
@@ -79,8 +70,6 @@ class InvestigationManager:
 
     def finish(self):
         self.data["status"] = "completed"
-        self.data["completed"] = datetime.now(
-            timezone.utc
-        ).isoformat()
+        self.data["completed"] = datetime.now(UTC).isoformat()
 
         self.save()

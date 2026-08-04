@@ -1,5 +1,5 @@
-from argus.wordpress.sql import analyze_sql_finding
 from argus.intelligence.safe_patterns import reduce_noise
+from argus.wordpress.sql import analyze_sql_finding
 
 
 def get_context(lines, line_number, radius=8):

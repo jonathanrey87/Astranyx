@@ -1,8 +1,8 @@
-from pathlib import Path
 import plistlib
-import zipfile
-import tempfile
 import shutil
+import tempfile
+import zipfile
+from pathlib import Path
 
 
 def find_app_dir(path: Path) -> Path | None:
@@ -93,9 +93,7 @@ def run(args):
             print()
 
         permissions = sorted(
-            k
-            for k in info.keys()
-            if k.startswith("NS") and k.endswith("UsageDescription")
+            k for k in info if k.startswith("NS") and k.endswith("UsageDescription")
         )
         if permissions:
             print("Privacy Permissions")
@@ -127,7 +125,7 @@ def run(args):
 
         return 0
 
-    except Exception as e:
+    except (OSError, ValueError, zipfile.BadZipFile) as e:
         print(f"[-] Error: {e}")
         return 1
 

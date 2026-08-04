@@ -7,7 +7,6 @@ from argus.investigation.run import (
     run,
 )
 
-
 EXPECTED_DIRECTORIES = {
     "analysis",
     "api",
@@ -26,9 +25,7 @@ def create_investigation(tmp_path, monkeypatch):
 
     run(None)
 
-    workspaces = list(
-        (tmp_path / "investigations").glob("INV-*")
-    )
+    workspaces = list((tmp_path / "investigations").glob("INV-*"))
 
     assert len(workspaces) == 1
     return workspaces[0]
@@ -43,20 +40,14 @@ def test_create_investigation_workspace(
         monkeypatch,
     )
 
-    directories = {
-        path.name
-        for path in workspace.iterdir()
-        if path.is_dir()
-    }
+    directories = {path.name for path in workspace.iterdir() if path.is_dir()}
 
     assert directories == EXPECTED_DIRECTORIES
 
     metadata_path = workspace / "metadata.json"
     assert metadata_path.is_file()
 
-    metadata = json.loads(
-        metadata_path.read_text(encoding="utf-8")
-    )
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
 
     assert metadata["id"] == workspace.name
     assert metadata["status"] == "created"
@@ -100,9 +91,7 @@ def test_investigation_manager_lifecycle(
 
     reloaded = InvestigationManager(workspace)
 
-    assert reloaded.data["target"] == (
-        "authorized-test-target"
-    )
+    assert reloaded.data["target"] == ("authorized-test-target")
     assert reloaded.data["status"] == "completed"
     assert "completed" in reloaded.data
 
@@ -110,9 +99,7 @@ def test_investigation_manager_lifecycle(
         {
             "name": "javascript",
             "status": "completed",
-            "completed": reloaded.data[
-                "modules"
-            ][0]["completed"],
+            "completed": reloaded.data["modules"][0]["completed"],
             "duration_ms": 125,
             "files": 3,
         }
@@ -144,15 +131,11 @@ def test_unique_workspace_root(tmp_path):
         parent,
         investigation_id,
     )
-    assert second.name == (
-        f"{investigation_id}-01"
-    )
+    assert second.name == (f"{investigation_id}-01")
     second.mkdir()
 
     third = _unique_workspace_root(
         parent,
         investigation_id,
     )
-    assert third.name == (
-        f"{investigation_id}-02"
-    )
+    assert third.name == (f"{investigation_id}-02")
