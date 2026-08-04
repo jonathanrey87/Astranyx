@@ -162,11 +162,21 @@ Only analyze plugins and code that you own or are authorized to assess.
 
 ### Create an investigation workspace
 
+Create a workspace with default metadata:
+
 ```bash
-python -m argus.cli investigate
+argus investigate
 ```
 
-The command creates a timestamped workspace containing directories for analysis, evidence, logs, reports, screenshots, JavaScript, and notes.
+Create a workspace for an authorized target and identify the analyst:
+
+```bash
+argus investigate \
+  --target /path/to/authorized-target \
+  --analyst "Jonathan Mendiola"
+```
+
+The command creates a timestamped workspace containing directories for analysis, API evidence, HTML, JavaScript, logs, notes, reports, and screenshots. The supplied target and analyst are stored in `metadata.json`.
 
 ### Generate reports
 
