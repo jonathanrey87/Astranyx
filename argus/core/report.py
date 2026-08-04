@@ -1,14 +1,16 @@
-from dataclasses import dataclass, field
-from datetime import datetime
-from collections import Counter
 import json
+from collections import Counter
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 
 
 @dataclass
 class Report:
     target: str
     findings: list
-    generated: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    generated: str = field(
+        default_factory=lambda: datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
+    )
 
     def summary(self):
         counts = Counter(f.category for f in self.findings)

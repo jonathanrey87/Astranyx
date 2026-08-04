@@ -1,12 +1,12 @@
-from pathlib import Path
 from dataclasses import dataclass
+from pathlib import Path
 
-from argus.wordpress.analyzer import analyze_finding
-from argus.wordpress.taint import analyze as taint_analyze
-from argus.wordpress.rules.registry import get_rules_for_file
-from argus.core.report import Report
 from argus.core.html import render
+from argus.core.report import Report
 from argus.core.sarif import export as export_sarif
+from argus.wordpress.analyzer import analyze_finding
+from argus.wordpress.rules.registry import get_rules_for_file
+from argus.wordpress.taint import analyze as taint_analyze
 
 
 @dataclass
@@ -41,12 +41,7 @@ def make_note(category):
 
 def is_comment(line):
     stripped = line.strip()
-    return (
-        stripped.startswith("//")
-        or stripped.startswith("#")
-        or stripped.startswith("*")
-        or stripped.startswith("/*")
-    )
+    return stripped.startswith(("//", "#", "*", "/*"))
 
 
 def scan_file(path: Path, root: Path):
@@ -54,7 +49,7 @@ def scan_file(path: Path, root: Path):
 
     try:
         lines = path.read_text(errors="ignore").splitlines()
-    except Exception:
+    except OSError:
         return findings
 
     rules = get_rules_for_file(path)

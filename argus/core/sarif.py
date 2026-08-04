@@ -9,9 +9,7 @@ def finding_to_result(finding):
 
     sev = finding.severity.lower()
 
-    if sev == "critical":
-        level = "error"
-    elif sev == "high":
+    if sev == "critical" or sev == "high":
         level = "error"
     elif sev == "medium":
         level = "warning"
@@ -19,21 +17,15 @@ def finding_to_result(finding):
     return {
         "ruleId": finding.category.replace(" ", "_"),
         "level": level,
-        "message": {
-            "text": finding.reason or finding.note or finding.category
-        },
+        "message": {"text": finding.reason or finding.note or finding.category},
         "locations": [
             {
                 "physicalLocation": {
-                    "artifactLocation": {
-                        "uri": finding.file
-                    },
-                    "region": {
-                        "startLine": finding.line
-                    }
+                    "artifactLocation": {"uri": finding.file},
+                    "region": {"startLine": finding.line},
                 }
             }
-        ]
+        ],
     }
 
 
@@ -50,15 +42,12 @@ def export(report, output_dir):
                     "driver": {
                         "name": "Argus",
                         "version": "1.2.0",
-                        "informationUri": "https://github.com/ArgusSecurity/Argus"
+                        "informationUri": "https://github.com/ArgusSecurity/Argus",
                     }
                 },
-                "results": [
-                    finding_to_result(f)
-                    for f in report.findings
-                ]
+                "results": [finding_to_result(f) for f in report.findings],
             }
-        ]
+        ],
     }
 
     with (output_dir / "findings.sarif").open("w") as fp:

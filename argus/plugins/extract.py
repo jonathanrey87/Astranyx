@@ -14,7 +14,7 @@ def run(args):
     cmd = ["pymobiledevice3", "apps", "list"]
 
     print("[*] Running:", " ".join(cmd))
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
 
     RAW.write_text(result.stdout)
 

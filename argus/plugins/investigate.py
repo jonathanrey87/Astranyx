@@ -1,7 +1,8 @@
 from types import SimpleNamespace
-from argus.plugins import threat, focus
-from argus.services.data import load_apps
+
+from argus.plugins import focus, threat
 from argus.services.checklist import create as create_checklist
+from argus.services.data import load_apps
 
 
 def run(args):
@@ -11,7 +12,7 @@ def run(args):
 
     try:
         data = load_apps(args.metadata)
-    except Exception as e:
+    except (OSError, ValueError) as e:
         print("[-] Metadata load failed")
         print(e)
         return 1
@@ -34,7 +35,7 @@ def run(args):
     print()
     from argus.plugins.evidence import create_workspace
 
-    workspace = create_workspace(f"INV {name}") 
+    workspace = create_workspace(f"INV {name}")
 
     print("Workspace")
     print("----------")
@@ -57,8 +58,8 @@ def run(args):
     print("----------------")
 
     analysis_args = SimpleNamespace(
-	bundle=args.bundle_id,
-	file=args.metadata,
+        bundle=args.bundle_id,
+        file=args.metadata,
     )
 
     print("[1/2] Threat model")

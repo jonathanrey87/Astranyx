@@ -4,8 +4,6 @@ Argus Intelligence Engine
 Evidence classification.
 """
 
-from collections import defaultdict
-
 from argus.intelligence.models import EvidenceCategory
 
 
@@ -35,16 +33,12 @@ def classify(summary: dict, routes: list[str]) -> list[EvidenceCategory]:
 
         for category, evidence in categories.items():
 
-            if category in lower:
-                evidence.routes.append(route)
-
-            elif category == "auth" and any(
-                x in lower for x in ("login", "logout", "session", "oauth")
-            ):
-                evidence.routes.append(route)
-
-            elif category == "uploads" and any(
-                x in lower for x in ("upload", "file", "files")
+            if (
+                category in lower
+                or category == "auth"
+                and any(x in lower for x in ("login", "logout", "session", "oauth"))
+                or category == "uploads"
+                and any(x in lower for x in ("upload", "file", "files"))
             ):
                 evidence.routes.append(route)
 

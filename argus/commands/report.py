@@ -1,5 +1,5 @@
-from pathlib import Path
 import json
+from pathlib import Path
 
 from argus.output.html_writer import write_html_report
 from argus.output.markdown_writer import write_markdown_summary

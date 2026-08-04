@@ -1,10 +1,12 @@
-from datetime import datetime
-from pathlib import Path
 import re
+from datetime import UTC, datetime
+from pathlib import Path
+
 
 def slugify(name: str) -> str:
     clean = re.sub(r"[^A-Za-z0-9]+", "_", name.strip())
     return clean.strip("_") or "investigation"
+
 
 def create_workspace(name: str) -> Path:
     slug = slugify(name)
@@ -23,7 +25,7 @@ def create_workspace(name: str) -> Path:
     for folder in folders:
         folder.mkdir(parents=True, exist_ok=True)
 
-    started = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    started = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
 
     (root / "README.md").write_text(f"""# Investigation: {name}
 
@@ -64,6 +66,7 @@ Researcher: Jonathan Mendiola
 """)
 
     return root
+
 
 def run(args):
     if args.evidence_command == "create":

@@ -1,5 +1,7 @@
-from argus.services.data import load_apps
 from pathlib import Path
+
+from argus.services.data import load_apps
+
 
 def schemes(app):
     out = []
@@ -7,13 +9,17 @@ def schemes(app):
         out.extend(item.get("CFBundleURLSchemes", []) or [])
     return sorted(set(out))
 
+
 def add(surface, name, stars, reason, tests):
-    surface.append({
-        "name": name,
-        "stars": stars,
-        "reason": reason,
-        "tests": tests,
-    })
+    surface.append(
+        {
+            "name": name,
+            "stars": stars,
+            "reason": reason,
+            "tests": tests,
+        }
+    )
+
 
 def run(args):
     target = Path(args.file)
@@ -49,7 +55,12 @@ def run(args):
             "Deep Links / URL Schemes",
             "★★★★★",
             "Custom schemes may expose app entry points.",
-            ["login route", "callback route", "malformed parameters", "unauthenticated launch"],
+            [
+                "login route",
+                "callback route",
+                "malformed parameters",
+                "unauthenticated launch",
+            ],
         )
 
     if ent.get("com.apple.developer.in-app-payments"):

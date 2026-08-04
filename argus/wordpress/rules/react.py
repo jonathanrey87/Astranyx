@@ -14,6 +14,8 @@ RULES = [
     {
         "category": "HTML Escaping",
         "severity": "Info",
-        "pattern": re.compile(r"DOMPurify|escapeHtml|htmlspecialchars|&lt;|&amp;|replace\(/</g"),
+        "pattern": re.compile(
+            r"DOMPurify|escapeHtml|htmlspecialchars|&lt;|&amp;|replace\(/</g"
+        ),
     },
 ]

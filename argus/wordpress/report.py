@@ -1,5 +1,5 @@
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
 
 
 @dataclass
@@ -38,9 +38,7 @@ SINKS = [
 ]
 
 
-ASSIGNMENT = re.compile(
-    r"(\$[A-Za-z0-9_]+)\s*=\s*(.+);"
-)
+ASSIGNMENT = re.compile(r"(\$[A-Za-z0-9_]+)\s*=\s*(.+);")
 
 
 def analyze(lines):
@@ -69,17 +67,17 @@ def analyze(lines):
 
             if sink in line:
 
-                for var in tainted:
+                for var, source in tainted.items():
 
                     if var in line:
 
                         findings.append(
                             TaintFinding(
-                                source=tainted[var],
+                                source=source,
                                 sink=sink,
                                 variable=var,
                                 confidence=95,
-                                reason=f"{var} flows from {tainted[var]}"
+                                reason=f"{var} flows from {source}",
                             )
                         )
 

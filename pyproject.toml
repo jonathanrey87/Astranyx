@@ -1,12 +1,84 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "argus-mobile"
-version = "0.1.0"
-description = "Mobile Application Security Research Framework"
-requires-python = ">=3.10"
+name = "argus-security"
+version = "3.0.0a1"
+description = "Argus Threat Intelligence Automation Framework"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    { name = "Jonathan Mendiola" }
+]
+keywords = [
+    "security",
+    "static-analysis",
+    "sast",
+    "threat-intelligence",
+    "wordpress",
+    "sarif"
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance"
+]
+dependencies = [
+	"arize-otel>=0.13.0,<0.14",
+	"opentelemetry-api>=1.44.0,<2",
+]
 
 [project.scripts]
-argus-mobile  = "argus.cli:main"
+argus = "argus.cli:main"
+
+[tool.setuptools]
+include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["argus*"]
+include = ["argus", "argus.*"]
+exclude = [
+    "tests",
+    "tests.*",
+    "docs",
+    "docs.*",
+    "docs1",
+    "docs1.*",
+    "tests1",
+    "tests1.*",
+    "reports",
+    "reports.*",
+    "evidence",
+    "evidence.*",
+    "playbooks",
+    "playbooks.*",
+    "investigations",
+    "investigations.*"
+]
+
+[tool.setuptools.package-data]
+"argus.core" = [
+    "templates/*.html",
+    "templates/*.css",
+    "templates/*.js"
+]
+
+[tool.black]
+line-length = 88
+target-version = ["py313"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+required-version = "==0.16.1"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

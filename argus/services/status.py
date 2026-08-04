@@ -30,4 +30,3 @@ def get_status(workspace):
         return "CONTINUE INVESTIGATION"
 
     return "READY FOR REVIEW"
-

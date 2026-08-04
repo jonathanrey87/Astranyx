@@ -6,7 +6,7 @@ investigations/
 evidence/
 reports/
 
-analysis/
+/analysis/
 *.log
 
 # Python packaging
