@@ -124,6 +124,7 @@ def main():
     investigation_parser = subparsers.add_parser(
         "investigate",
         help="Create a new investigation workspace",
+        description="Create a new investigation workspace",
     )
 
     investigation_parser.add_argument(
