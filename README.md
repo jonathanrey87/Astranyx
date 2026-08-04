@@ -108,7 +108,7 @@ Argus contains support for:
 - Linux, macOS, or another Python-compatible environment
 - A virtual environment is recommended
 
-The current alpha imports OpenTelemetry and Arize tracing modules at CLI startup. Until runtime dependencies are declared in `pyproject.toml`, install them manually:
+Runtime dependencies, including OpenTelemetry and Arize tracing support, are declared in `pyproject.toml` and installed automatically with Argus:
 
 ```bash
 python -m venv venv
@@ -116,7 +116,6 @@ source venv/bin/activate
 
 python -m pip install --upgrade pip
 python -m pip install -e .
-python -m pip install opentelemetry-api arize-otel
 ```
 
 For development and testing:
@@ -268,7 +267,6 @@ Never commit tracing credentials, session tokens, cookies, or API keys.
 Argus is under active development. Current limitations include:
 
 - Alpha APIs and data formats
-- Runtime dependencies are not yet fully declared in `pyproject.toml`
 - The evidence pipeline is available through `build_default_pipeline()` but is not yet connected to every scanner and report path
 - Some modules use different finding models
 - CLI and investigation behavior are still evolving
