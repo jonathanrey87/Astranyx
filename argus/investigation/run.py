@@ -1,4 +1,6 @@
 import json
+
+from argus import __version__
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -56,7 +58,7 @@ def run(args):
                 "status": "created",
                 "target": target,
                 "analyst": analyst,
-                "argus_version": "3.0.0a1",
+                "argus_version": __version__,
                 "trace_enabled": trace_enabled,
                 "modules": [],
                 "findings": {

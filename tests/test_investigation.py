@@ -1,5 +1,7 @@
 import json
 
+from argus import __version__
+
 from argus.investigation.manager import InvestigationManager
 from argus.investigation.run import run
 
@@ -54,6 +56,7 @@ def test_create_investigation_workspace(
 
     assert metadata["id"] == workspace.name
     assert metadata["status"] == "created"
+    assert metadata["argus_version"] == __version__
     assert metadata["target"] is None
     assert metadata["trace_enabled"] is False
     assert metadata["modules"] == []
