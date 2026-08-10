@@ -2,6 +2,7 @@ import argparse
 
 from argus import __version__
 from argus.commands import report as report_command
+from argus.investigation import orchestrator
 from argus.investigation import run as investigation_command
 from argus.modules import js
 from argus.tracing import configure_tracing
@@ -29,8 +30,36 @@ def run_wordpress(args):
 
 
 def run_investigation(args):
-    """Create a new investigation workspace."""
-    investigation_command.run(args)
+    """Create a workspace and optionally run an investigation pipeline."""
+    positional_target = getattr(args, "path", None)
+    option_target = getattr(args, "target", None)
+
+    if (
+        positional_target
+        and option_target
+        and str(positional_target) != str(option_target)
+    ):
+        raise SystemExit(
+            "[!] Supply the target either positionally or with --target, not both"
+        )
+
+    target = positional_target or option_target
+    args.target = target
+
+    if target is None:
+        return investigation_command.run(args)
+
+    try:
+        return orchestrator.run(
+            target,
+            analyst=args.analyst,
+            profile=args.profile,
+            recursive=args.recursive,
+            trace_enabled=args.trace_enabled,
+            workspace_root=args.workspace_root,
+        )
+    except (FileNotFoundError, NotADirectoryError, ValueError) as exc:
+        raise SystemExit(f"[!] {exc}") from exc
 
 
 def main():
@@ -121,8 +150,17 @@ def main():
     # Investigation command
     investigation_parser = subparsers.add_parser(
         "investigate",
-        help="Create a new investigation workspace",
-        description="Create a new investigation workspace",
+        help="Create or run an investigation",
+        description=(
+            "Create an investigation workspace and, when a local target is "
+            "supplied, run the selected analysis profile"
+        ),
+    )
+
+    investigation_parser.add_argument(
+        "path",
+        nargs="?",
+        help="Optional local, authorized target to analyze",
     )
 
     investigation_parser.add_argument(
@@ -133,7 +171,27 @@ def main():
 
     investigation_parser.add_argument(
         "--target",
-        help="Authorized target or local analysis path",
+        help="Compatibility alias for the positional target path",
+    )
+
+    investigation_parser.add_argument(
+        "--profile",
+        choices=orchestrator.SUPPORTED_PROFILES,
+        default="auto",
+        help="Analysis profile (default: auto)",
+    )
+
+    investigation_parser.add_argument(
+        "--recursive",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Discover supported source files recursively (default: enabled)",
+    )
+
+    investigation_parser.add_argument(
+        "--workspace-root",
+        default="investigations",
+        help="Parent directory for investigation workspaces",
     )
 
     investigation_parser.set_defaults(
@@ -194,6 +252,12 @@ def main():
             span.set_attribute(
                 "argus.analyst",
                 str(args.analyst),
+            )
+
+        if getattr(args, "profile", None):
+            span.set_attribute(
+                "argus.investigation.profile",
+                str(args.profile),
             )
 
         args.func(args)

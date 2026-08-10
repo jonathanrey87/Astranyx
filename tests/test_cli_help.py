@@ -32,7 +32,10 @@ from argus.cli import main
             (
                 "--analyst",
                 "--target",
-                "investigation workspace",
+                "--profile",
+                "--recursive",
+                "--workspace-root",
+                "local, authorized target",
             ),
         ),
     ],

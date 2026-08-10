@@ -28,14 +28,12 @@ class TaintEngine:
         findings: list[TaintEvidence] = []
 
         for source in graph.nodes:
-
             trust = self.trust.classify(source)
 
             if trust != TrustLevel.UNTRUSTED:
                 continue
 
             for sink in graph.successors(source):
-
                 findings.append(
                     TaintEvidence(
                         source=source,

@@ -27,6 +27,17 @@ class InvestigationManager:
         self.data["status"] = status
         self.save()
 
+    def set_context(self, profile, selected_modules):
+        """Record how an investigation was orchestrated."""
+        self.data["profile"] = profile
+        self.data["selected_modules"] = list(selected_modules)
+        self.save()
+
+    def set_artifacts(self, artifacts):
+        """Replace the generated-artifact inventory."""
+        self.data["artifacts"] = list(artifacts)
+        self.save()
+
     def add_module(
         self,
         name,
@@ -69,7 +80,10 @@ class InvestigationManager:
         self.save()
 
     def finish(self):
-        self.data["status"] = "completed"
-        self.data["completed"] = datetime.now(UTC).isoformat()
+        self.finish_with_status("completed")
 
+    def finish_with_status(self, status):
+        """Complete an investigation with a terminal status."""
+        self.data["status"] = status
+        self.data["completed"] = datetime.now(UTC).isoformat()
         self.save()

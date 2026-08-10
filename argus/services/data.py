@@ -8,7 +8,7 @@ def load_apps(path=None):
     db = Path(path) if path else DEFAULT_DB
 
     if not db.exists():
-        raise FileNotFoundError(f"{db} not found.\n" "Run: python -m argus.cli extract")
+        raise FileNotFoundError(f"{db} not found.\nRun: python -m argus.cli extract")
 
     try:
         return json.loads(db.read_text())

@@ -170,23 +170,58 @@ python -m argus.cli wordpress ./path/to/plugin
 
 Only analyze plugins and code that you own or are authorized to assess.
 
-### Create an investigation workspace
+### Run an investigation
 
-Create a workspace with default metadata:
+Create an empty workspace with default metadata:
 
 ```bash
 argus investigate
 ```
 
-Create a workspace for an authorized target and identify the analyst:
+Run automatic local-target detection and the compatible analyzers:
 
 ```bash
-argus investigate \
-  --target /path/to/authorized-target \
+argus investigate ./path/to/authorized-target
+```
+
+Choose the complete local web profile and identify the analyst:
+
+```bash
+argus investigate /path/to/authorized-target \
+  --profile web \
   --analyst "Jonathan Mendiola"
 ```
 
-The command creates a timestamped workspace containing directories for analysis, API evidence, HTML, JavaScript, logs, notes, reports, and screenshots. The supplied target and analyst are stored in `metadata.json`.
+Available profiles are `auto`, `web`, `javascript`, and `wordpress`. Recursive
+discovery is enabled by default and can be disabled with `--no-recursive`.
+`--target` remains available as a compatibility alias for the positional path.
+
+The command creates a timestamped workspace containing directories for analysis,
+API evidence, HTML, JavaScript, logs, notes, reports, and screenshots. With a
+target, Argus runs each selected analyzer, isolates module failures, updates
+`metadata.json`, and writes `manifest.json` with SHA-256 hashes for every generated
+analysis and report artifact.
+
+Choose a different workspace parent directory when needed:
+
+```bash
+argus investigate ./authorized-target \
+  --workspace-root ./casework
+```
+
+Example completed workspace:
+
+```text
+investigations/INV-YYYYMMDD-HHMMSS/
+├── analysis/javascript.json
+├── reports/wordpress/
+│   ├── index.html
+│   ├── findings.csv
+│   ├── findings.json
+│   └── findings.sarif
+├── manifest.json
+└── metadata.json
+```
 
 ### Generate reports
 
@@ -326,4 +361,3 @@ Created by Jonathan Mendiola.
 ## License
 
 A `LICENSE` file exists in the repository but currently contains no license text. Add the intended license before distributing the project.
-

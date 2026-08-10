@@ -13,7 +13,6 @@ class TrustLevel(Enum):
 
 
 class TrustEngine:
-
     def classify(self, value: str) -> TrustLevel:
 
         value = value.lower()

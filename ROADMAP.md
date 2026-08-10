@@ -1,5 +1,18 @@
 # Argus Roadmap
 
+## v3.1 - Investigation Engine
+- [x] Unified `argus investigate <target>` orchestration
+- [x] Automatic JavaScript and WordPress module selection
+- [x] Explicit web, JavaScript, and WordPress profiles
+- [x] Module failure isolation and terminal investigation states
+- [x] SHA-256 artifact manifest
+- [x] Optional tracing compatibility layer
+- [ ] Resume interrupted investigations
+- [ ] Cross-module finding deduplication
+- [ ] Unified evidence graph
+- [ ] Investigation dashboard
+- [ ] Pluggable analyzer registry
+
 ## v1.0
 - [x] Modular WordPress scanner
 - [x] Rule registry
