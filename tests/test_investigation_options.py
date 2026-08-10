@@ -1,7 +1,7 @@
 import json
 from argparse import Namespace
 
-from argus.investigation.run import run
+from astranyx.investigation.run import run
 
 
 def test_custom_analyst_and_target(

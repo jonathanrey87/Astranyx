@@ -1,6 +1,6 @@
 import pytest
 
-from argus.modules.js import analyze
+from astranyx.modules.js import analyze
 
 
 def test_nested_javascript_requires_recursive(

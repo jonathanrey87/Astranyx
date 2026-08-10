@@ -2,14 +2,14 @@ import sys
 
 import pytest
 
-from argus.cli import main
+from astranyx.cli import main
 
 
 @pytest.mark.parametrize(
     ("arguments", "expected_text"),
     [
         (
-            ["argus", "--help"],
+            ["astranyx", "--help"],
             (
                 "js",
                 "report",
@@ -19,7 +19,7 @@ from argus.cli import main
             ),
         ),
         (
-            ["argus", "js", "analyze", "--help"],
+            ["astranyx", "js", "analyze", "--help"],
             (
                 "--output",
                 "--investigation",
@@ -28,7 +28,7 @@ from argus.cli import main
             ),
         ),
         (
-            ["argus", "investigate", "--help"],
+            ["astranyx", "investigate", "--help"],
             (
                 "--analyst",
                 "--target",

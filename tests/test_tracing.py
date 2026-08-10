@@ -1,4 +1,4 @@
-from argus.tracing import configure_tracing
+from astranyx.tracing import configure_tracing
 
 
 def test_tracing_disabled_without_credentials(
@@ -21,7 +21,7 @@ def test_tracing_registers_with_credentials(
     monkeypatch.setenv("ARIZE_SPACE_ID", "test-space")
     monkeypatch.setenv("ARIZE_API_KEY", "test-key")
     monkeypatch.setattr(
-        "argus.tracing.register",
+        "astranyx.tracing.register",
         fake_register,
     )
 
@@ -31,5 +31,5 @@ def test_tracing_registers_with_credentials(
     assert captured == {
         "space_id": "test-space",
         "api_key": "test-key",
-        "project_name": "argus-security",
+        "project_name": "astranyx",
     }

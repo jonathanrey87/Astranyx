@@ -1,6 +1,6 @@
 from argparse import Namespace
 
-from argus.plugins import review
+from astranyx.plugins import review
 
 
 def test_review_missing_workspace_returns_error(tmp_path):

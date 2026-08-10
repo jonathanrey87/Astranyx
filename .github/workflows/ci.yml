@@ -1,4 +1,4 @@
-name: Orion CI
+name: Astranyx CI
 
 on:
   push:
@@ -36,11 +36,11 @@ jobs:
 
       - name: Ruff
         run: |
-          ruff check argus tests
+          ruff check astranyx tests
 
       - name: Black
         run: |
-          black --check --target-version py313 argus tests
+          black --check --target-version py313 astranyx tests
 
       - name: Tests
         run: |

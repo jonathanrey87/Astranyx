@@ -1,4 +1,4 @@
-from argus.graph.trust import TrustEngine, TrustLevel
+from astranyx.graph.trust import TrustEngine, TrustLevel
 
 
 def test_untrusted():

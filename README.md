@@ -1,35 +1,35 @@
 <div align="center">
 
-# ARGUS
+# ASTRANYX
 
-**Threat Intelligence Automation Framework**
+**Investigation Engine**
 
-Observe • Correlate • Prioritize • Defend
+Where signals emerge from the dark.
 
-`Version 3.1.0a1` · `Alpha` · `Python 3.11+`
+`Version 4.0.0a1` · `Alpha` · `Python 3.11+`
 
 </div>
 
-Argus is a security-analysis framework for reviewing source code, JavaScript bundles, and WordPress plugins.
+Astranyx is a security-analysis framework for reviewing source code, JavaScript bundles, and WordPress plugins.
 
 It combines pattern discovery, data-flow analysis, validation evidence, confidence scoring, attack-surface classification, and reporting—helping analysts separate suspicious behavior from findings with demonstrated security impact.
 
 ## Core principles
 
-Argus follows four operating principles:
+Astranyx follows four operating principles:
 
 - **Observe** — identify routes, sinks, trust boundaries, and security-relevant patterns.
 - **Correlate** — connect findings with validation routines, data flow, and context.
 - **Prioritize** — rank findings using evidence, confidence, and demonstrated impact.
 - **Defend** — produce actionable reports and remediation guidance.
 
-Argus records evidence without assuming that every suspicious response or code pattern is exploitable.
+Astranyx records evidence without assuming that every suspicious response or code pattern is exploitable.
 
 ## Implemented capabilities
 
 ### JavaScript analysis
 
-Argus can analyze directories containing JavaScript bundles and identify patterns associated with:
+Astranyx can analyze directories containing JavaScript bundles and identify patterns associated with:
 
 - Network requests
 - Authentication and OAuth
@@ -39,7 +39,7 @@ Argus can analyze directories containing JavaScript bundles and identify pattern
 - Collaboration features
 - Application routes
 
-Results can be written to JSON and associated with an Argus investigation workspace.
+Results can be written to JSON and associated with an Astranyx investigation workspace.
 
 ### WordPress plugin analysis
 
@@ -90,7 +90,7 @@ A successful query, wildcard CORS header, generic server error, or public health
 
 ### Reporting
 
-Argus contains support for:
+Astranyx contains support for:
 
 - HTML
 - Markdown
@@ -108,7 +108,7 @@ Argus contains support for:
 - Linux, macOS, or another Python-compatible environment
 - A virtual environment is recommended
 
-Runtime dependencies, including OpenTelemetry and Arize tracing support, are declared in `pyproject.toml` and installed automatically with Argus:
+Runtime dependencies, including OpenTelemetry and Arize tracing support, are declared in `pyproject.toml` and installed automatically with Astranyx:
 
 ```bash
 python -m venv venv
@@ -129,26 +129,26 @@ python -m pip install pytest
 Show available commands:
 
 ```bash
-python -m argus.cli --help
+python -m astranyx.cli --help
 ```
 
 ### Analyze JavaScript
 
 ```bash
-python -m argus.cli js analyze ./path/to/javascript
+python -m astranyx.cli js analyze ./path/to/javascript
 ```
 
 Write the report to a specific file:
 
 ```bash
-python -m argus.cli js analyze ./path/to/javascript \
+python -m astranyx.cli js analyze ./path/to/javascript \
   --output report.json
 ```
 
 Recursively discover JavaScript files in nested directories:
 
 ```bash
-python -m argus.cli js analyze ./path/to/javascript \
+python -m astranyx.cli js analyze ./path/to/javascript \
   --recursive \
   --output report.json
 ```
@@ -158,14 +158,14 @@ Recursive reports preserve paths relative to the analysis root, such as `assets/
 Associate results with an investigation:
 
 ```bash
-python -m argus.cli js analyze ./path/to/javascript \
+python -m astranyx.cli js analyze ./path/to/javascript \
   --investigation investigations/INV-YYYYMMDD-HHMMSS
 ```
 
 ### Audit a WordPress plugin
 
 ```bash
-python -m argus.cli wordpress ./path/to/plugin
+python -m astranyx.cli wordpress ./path/to/plugin
 ```
 
 Only analyze plugins and code that you own or are authorized to assess.
@@ -175,19 +175,19 @@ Only analyze plugins and code that you own or are authorized to assess.
 Create an empty workspace with default metadata:
 
 ```bash
-argus investigate
+astranyx investigate
 ```
 
 Run automatic local-target detection and the compatible analyzers:
 
 ```bash
-argus investigate ./path/to/authorized-target
+astranyx investigate ./path/to/authorized-target
 ```
 
 Choose the complete local web profile and identify the analyst:
 
 ```bash
-argus investigate /path/to/authorized-target \
+astranyx investigate /path/to/authorized-target \
   --profile web \
   --analyst "Jonathan Mendiola"
 ```
@@ -198,14 +198,14 @@ discovery is enabled by default and can be disabled with `--no-recursive`.
 
 The command creates a timestamped workspace containing directories for analysis,
 API evidence, HTML, JavaScript, logs, notes, reports, and screenshots. With a
-target, Argus runs each selected analyzer, isolates module failures, updates
+target, Astranyx runs each selected analyzer, isolates module failures, updates
 `metadata.json`, and writes `manifest.json` with SHA-256 hashes for every generated
 analysis and report artifact.
 
 Choose a different workspace parent directory when needed:
 
 ```bash
-argus investigate ./authorized-target \
+astranyx investigate ./authorized-target \
   --workspace-root ./casework
 ```
 
@@ -226,13 +226,13 @@ investigations/INV-YYYYMMDD-HHMMSS/
 ### Generate reports
 
 ```bash
-python -m argus.cli report ./path/to/report.json
+python -m astranyx.cli report ./path/to/report.json
 ```
 
 ## Evidence-pipeline example
 
 ```python
-from argus.analysis.pipeline import build_default_pipeline
+from astranyx.analysis.pipeline import build_default_pipeline
 
 pipeline = build_default_pipeline()
 
@@ -262,7 +262,7 @@ In this example, anonymous GraphQL execution without protected data is rejected,
 ## Project structure
 
 ```text
-argus/
+astranyx/
 ├── analysis/       Evidence gates, pipeline, taint, and validation
 ├── commands/       CLI command implementations
 ├── core/           Reports, HTML, SARIF, and source previews
@@ -304,7 +304,7 @@ The current suite covers:
 
 ## Tracing
 
-Argus supports optional Arize/OpenTelemetry tracing.
+Astranyx supports optional Arize/OpenTelemetry tracing.
 
 Set both variables before running the CLI:
 
@@ -313,13 +313,13 @@ export ARIZE_SPACE_ID='your-space-id'
 export ARIZE_API_KEY='your-api-key'
 ```
 
-If tracing credentials are absent, Argus is intended to run without exporting traces.
+If tracing credentials are absent, Astranyx is intended to run without exporting traces.
 
 Never commit tracing credentials, session tokens, cookies, or API keys.
 
 ## Development status
 
-Argus is under active development. Current limitations include:
+Astranyx is under active development. Current limitations include:
 
 - Alpha APIs and data formats
 - The evidence pipeline is available through `build_default_pipeline()` but is not yet connected to every scanner and report path
@@ -345,7 +345,7 @@ Roadmap items are plans, not completed capabilities.
 
 ## Responsible use
 
-Use Argus only on:
+Use Astranyx only on:
 
 - Systems and code you own
 - Local test environments

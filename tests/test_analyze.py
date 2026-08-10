@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from argus.modules.js import analyze
+from astranyx.modules.js import analyze
 
 
 def test_analyze_javascript_patterns_and_routes(

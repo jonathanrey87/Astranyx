@@ -1,4 +1,4 @@
-from argus.services.playbook import recommend
+from astranyx.services.playbook import recommend
 
 
 def test_deeplink_recommendation():

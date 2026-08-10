@@ -1,17 +1,17 @@
-# Contributing to Argus
+# Contributing to Astranyx
 
-Thank you for your interest in contributing to Argus.
+Thank you for your interest in contributing to Astranyx.
 
 ## Project Mission
 
-Argus is a mobile application security research framework designed to help researchers:
+Astranyx is a mobile application security research framework designed to help researchers:
 
 * Prioritize investigations
 * Organize evidence
 * Improve report quality
 * Build repeatable research workflows
 
-Argus is **not** a vulnerability scanner. It assists researchers in conducting structured investigations.
+Astranyx is **not** a vulnerability scanner. It assists researchers in conducting structured investigations.
 
 ## Development Principles
 
@@ -67,4 +67,4 @@ When reporting bugs, include:
 
 ## License
 
-By contributing to Argus, you agree that your contributions will be licensed under the project's LICENSE file.
+By contributing to Astranyx, you agree that your contributions will be licensed under the project's LICENSE file.

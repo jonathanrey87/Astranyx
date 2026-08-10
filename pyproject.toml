@@ -3,9 +3,9 @@ requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "argus-security"
-version = "3.1.0a1"
-description = "Argus Threat Intelligence Automation Framework"
+name = "astranyx"
+version = "4.0.0a1"
+description = "Astranyx Investigation Engine"
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
@@ -36,15 +36,20 @@ dependencies = [
 	"opentelemetry-api>=1.44.0,<2",
 ]
 
+[project.urls]
+Homepage = "https://github.com/jonathanrey87/Astranyx"
+Repository = "https://github.com/jonathanrey87/Astranyx"
+Issues = "https://github.com/jonathanrey87/Astranyx/issues"
+
 [project.scripts]
-argus = "argus.cli:main"
+astranyx = "astranyx.cli:main"
 
 [tool.setuptools]
 include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["argus", "argus.*"]
+include = ["astranyx", "astranyx.*"]
 exclude = [
     "tests",
     "tests.*",
@@ -65,7 +70,7 @@ exclude = [
 ]
 
 [tool.setuptools.package-data]
-"argus.core" = [
+"astranyx.core" = [
     "templates/*.html",
     "templates/*.css",
     "templates/*.js"

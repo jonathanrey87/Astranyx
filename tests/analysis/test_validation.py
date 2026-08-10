@@ -1,4 +1,4 @@
-from argus.analysis.validation import ValidationEngine
+from astranyx.analysis.validation import ValidationEngine
 
 
 def test_detects_validation():

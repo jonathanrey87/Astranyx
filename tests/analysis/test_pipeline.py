@@ -1,4 +1,4 @@
-from argus.analysis.pipeline import (
+from astranyx.analysis.pipeline import (
     AnalysisPipeline,
     AnalysisStage,
     build_default_pipeline,

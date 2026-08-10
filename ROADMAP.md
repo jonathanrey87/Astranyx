@@ -1,7 +1,7 @@
-# Argus Roadmap
+# Astranyx Roadmap
 
 ## v3.1 - Investigation Engine
-- [x] Unified `argus investigate <target>` orchestration
+- [x] Unified `astranyx investigate <target>` orchestration
 - [x] Automatic JavaScript and WordPress module selection
 - [x] Explicit web, JavaScript, and WordPress profiles
 - [x] Module failure isolation and terminal investigation states

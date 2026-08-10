@@ -1,7 +1,7 @@
 import json
 
-from argus.investigation.run import run
-from argus.modules.js import analyze
+from astranyx.investigation.run import run
+from astranyx.modules.js import analyze
 
 
 def test_js_analysis_updates_investigation(
