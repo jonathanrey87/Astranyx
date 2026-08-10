@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [3.1.0a1] - 2026-08-10
+
 - Added the unified `argus investigate <target>` pipeline.
 - Added automatic and explicit analysis profiles for local authorized targets.
 - Added per-module failure isolation with completed, partial, and failed states.

@@ -6,7 +6,7 @@
 
 Observe • Correlate • Prioritize • Defend
 
-`Version 3.0.0a1` · `Alpha` · `Python 3.11+`
+`Version 3.1.0a1` · `Alpha` · `Python 3.11+`
 
 </div>
 
