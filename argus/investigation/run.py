@@ -2,10 +2,8 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
-
 from argus import __version__
+from argus.telemetry import Status, StatusCode, trace
 
 tracer = trace.get_tracer("argus.investigation")
 
@@ -34,13 +32,16 @@ def run(args):
     )
     target = getattr(args, "target", None)
     trace_enabled = bool(getattr(args, "trace_enabled", False))
+    workspace_parent = Path(
+        getattr(args, "workspace_root", "investigations")
+    ).expanduser()
 
     with tracer.start_as_current_span("argus.investigation.create") as span:
         timestamp = datetime.now(UTC)
 
         base_id = timestamp.strftime("INV-%Y%m%d-%H%M%S")
         root = _unique_workspace_root(
-            Path("investigations"),
+            workspace_parent,
             base_id,
         )
         investigation_id = root.name

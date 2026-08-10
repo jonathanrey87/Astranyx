@@ -1,7 +1,11 @@
 import os
 
-from arize.otel import register
-from opentelemetry import trace
+from argus.telemetry import trace
+
+try:
+    from arize.otel import register
+except ImportError:
+    register = None
 
 
 def configure_tracing():
@@ -10,6 +14,9 @@ def configure_tracing():
     api_key = os.getenv("ARIZE_API_KEY")
 
     if not space_id or not api_key:
+        return None
+
+    if register is None:
         return None
 
     register(

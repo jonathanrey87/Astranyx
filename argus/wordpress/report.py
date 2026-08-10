@@ -48,29 +48,21 @@ def analyze(lines):
     findings = []
 
     for line in lines:
-
         m = ASSIGNMENT.search(line)
 
         if m:
-
             var = m.group(1)
 
             rhs = m.group(2)
 
             for src in SOURCES:
-
                 if re.search(src, rhs):
-
                     tainted[var] = src
 
         for sink in SINKS:
-
             if sink in line:
-
                 for var, source in tainted.items():
-
                     if var in line:
-
                         findings.append(
                             TaintFinding(
                                 source=source,

@@ -80,7 +80,7 @@ def render_surface_rows(attack_surface):
     rows = ""
 
     for key, value in attack_surface.items():
-        rows += "<tr>" f"<td>{html.escape(str(key))}</td>" f"<td>{value}</td>" "</tr>"
+        rows += f"<tr><td>{html.escape(str(key))}</td><td>{value}</td></tr>"
 
     return rows
 

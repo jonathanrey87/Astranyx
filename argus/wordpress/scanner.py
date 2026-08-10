@@ -1,3 +1,4 @@
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -99,7 +100,7 @@ def summarize(findings):
     return summary
 
 
-def scan_plugin(plugin_path):
+def scan_plugin(plugin_path, recursive=True):
     root = Path(plugin_path).expanduser().resolve()
 
     if not root.exists():
@@ -108,7 +109,8 @@ def scan_plugin(plugin_path):
     findings = []
 
     for ext in ("*.php", "*.js", "*.jsx", "*.ts", "*.tsx"):
-        for file in root.rglob(ext):
+        files = root.rglob(ext) if recursive else root.glob(ext)
+        for file in files:
             if any(x in file.parts for x in ("vendor", "node_modules", ".git")):
                 continue
 
@@ -117,8 +119,10 @@ def scan_plugin(plugin_path):
     return findings
 
 
-def run(plugin_path):
-    findings = scan_plugin(plugin_path)
+def run(plugin_path, output=None, recursive=True):
+    """Scan a WordPress plugin and return its report metadata."""
+    plugin_path = Path(plugin_path).expanduser().resolve()
+    findings = scan_plugin(plugin_path, recursive=recursive)
     summary = summarize(findings)
 
     print()
@@ -148,8 +152,8 @@ def run(plugin_path):
 
     print(f"Total Findings: {len(findings)}")
 
-    report = Report(plugin_path, findings)
-    out = Path("reports") / Path(plugin_path).name
+    report = Report(str(plugin_path), findings)
+    out = Path(output) if output else Path("reports") / Path(plugin_path).name
     render(report, out)
     export_sarif(report, out)
 
@@ -161,6 +165,28 @@ def run(plugin_path):
     print(f"JSON : {out / 'findings.json'}")
     print(f"CSV  : {out / 'findings.csv'}")
     print(f"SARIF: {out / 'findings.sarif'}")
+
+    severity_counts = Counter(finding.severity.lower() for finding in findings)
+
+    return {
+        "target": str(plugin_path),
+        "findings_total": len(findings),
+        "categories": summary,
+        "severity": {
+            level: severity_counts.get(level, 0)
+            for level in ("critical", "high", "medium", "low", "info")
+        },
+        "output_directory": str(out),
+        "artifacts": [
+            str(out / filename)
+            for filename in (
+                "index.html",
+                "findings.json",
+                "findings.csv",
+                "findings.sarif",
+            )
+        ],
+    }
 
 
 if __name__ == "__main__":

@@ -24,7 +24,6 @@ class CallGraph:
     def add_module(self, module: IRModule):
 
         for fn in module.functions:
-
             caller = f"{module.path}::{fn.name}"
 
             self.nodes.setdefault(
@@ -38,7 +37,6 @@ class CallGraph:
             self.edges.setdefault(caller, set())
 
             for call in fn.calls:
-
                 callee = call.target
 
                 self.nodes.setdefault(

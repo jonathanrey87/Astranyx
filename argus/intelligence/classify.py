@@ -17,7 +17,6 @@ def classify(summary: dict, routes: list[str]) -> list[EvidenceCategory]:
     # Aggregate bundle evidence
     for bundle, findings in summary.items():
         for category, matches in findings.items():
-
             if category not in categories:
                 categories[category] = EvidenceCategory(name=category)
 
@@ -28,11 +27,9 @@ def classify(summary: dict, routes: list[str]) -> list[EvidenceCategory]:
 
     # Associate routes
     for route in routes:
-
         lower = route.lower()
 
         for category, evidence in categories.items():
-
             if (
                 category in lower
                 or category == "auth"

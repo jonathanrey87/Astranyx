@@ -20,7 +20,6 @@ def analyze_intelligence(report: dict) -> IntelligenceReport:
     )
 
     for category in categories:
-
         assessment = calculate_score(
             category.name,
             category.matches,

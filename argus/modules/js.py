@@ -3,10 +3,8 @@ import re
 from pathlib import Path
 from time import perf_counter
 
-from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
-
 from argus.investigation.manager import InvestigationManager
+from argus.telemetry import Status, StatusCode, trace
 
 tracer = trace.get_tracer("argus.modules.js")
 
@@ -139,7 +137,7 @@ def _scan_javascript_files(js_files, base):
                         )
                     )
 
-                    print(f"[!] Failed reading " f"{file_path}: {exc}")
+                    print(f"[!] Failed reading {file_path}: {exc}")
                     continue
 
                 finding_count = sum(findings.values())
