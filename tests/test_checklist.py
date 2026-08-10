@@ -1,4 +1,4 @@
-from argus.services.checklist import create
+from astranyx.services.checklist import create
 
 
 def test_checklist_created(tmp_path):

@@ -1,5 +1,5 @@
-from argus.graph.callgraph import CallGraph
-from argus.models.ir import (
+from astranyx.graph.callgraph import CallGraph
+from astranyx.models.ir import (
     IRCall,
     IRFunction,
     IRModule,

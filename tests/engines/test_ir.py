@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from argus.models.ir import IRCall, IRFunction, IRModule, SourceLocation
+from astranyx.models.ir import IRCall, IRFunction, IRModule, SourceLocation
 
 
 def test_ir_module_creation():

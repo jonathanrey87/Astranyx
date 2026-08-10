@@ -4,8 +4,8 @@ import sys
 
 import pytest
 
-from argus.cli import main
-from argus.investigation import orchestrator
+from astranyx.cli import main
+from astranyx.investigation import orchestrator
 
 
 def _write_web_target(root):
@@ -133,7 +133,7 @@ def test_investigate_cli_runs_target_pipeline(
         sys,
         "argv",
         [
-            "argus",
+            "astranyx",
             "investigate",
             str(target),
             "--profile",

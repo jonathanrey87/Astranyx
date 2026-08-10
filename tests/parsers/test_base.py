@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from argus.models.ir import IRModule
-from argus.parsers.base import BaseParser
+from astranyx.models.ir import IRModule
+from astranyx.parsers.base import BaseParser
 
 
 class DummyParser(BaseParser):

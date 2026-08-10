@@ -2,7 +2,7 @@ import os
 from argparse import Namespace
 from pathlib import Path
 
-from argus.plugins import evidence
+from astranyx.plugins import evidence
 
 
 def test_create_workspace(tmp_path):

@@ -2,8 +2,8 @@ import sys
 
 import pytest
 
-from argus import __version__
-from argus.cli import main
+from astranyx import __version__
+from astranyx.cli import main
 
 
 def test_cli_version(
@@ -21,11 +21,11 @@ def test_cli_version(
     monkeypatch.setattr(
         sys,
         "argv",
-        ["argus", "--version"],
+        ["astranyx", "--version"],
     )
 
     with pytest.raises(SystemExit) as exc_info:
         main()
 
     assert exc_info.value.code == 0
-    assert capsys.readouterr().out.strip() == (f"argus {__version__}")
+    assert capsys.readouterr().out.strip() == (f"astranyx {__version__}")

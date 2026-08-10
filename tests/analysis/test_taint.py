@@ -1,6 +1,6 @@
-from argus.analysis.taint import TaintEngine
-from argus.analysis.validation import ValidationEvidence
-from argus.graph.dfg import DataFlowGraph
+from astranyx.analysis.taint import TaintEngine
+from astranyx.analysis.validation import ValidationEvidence
+from astranyx.graph.dfg import DataFlowGraph
 
 
 def test_simple_taint():

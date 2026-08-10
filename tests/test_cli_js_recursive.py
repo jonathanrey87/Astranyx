@@ -1,7 +1,7 @@
 import json
 import sys
 
-from argus.cli import main
+from astranyx.cli import main
 
 
 def test_recursive_javascript_cli(
@@ -31,7 +31,7 @@ def test_recursive_javascript_cli(
         sys,
         "argv",
         [
-            "argus",
+            "astranyx",
             "js",
             "analyze",
             str(tmp_path),

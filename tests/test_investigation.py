@@ -1,8 +1,8 @@
 import json
 
-from argus import __version__
-from argus.investigation.manager import InvestigationManager
-from argus.investigation.run import (
+from astranyx import __version__
+from astranyx.investigation.manager import InvestigationManager
+from astranyx.investigation.run import (
     _unique_workspace_root,
     run,
 )
@@ -52,7 +52,7 @@ def test_create_investigation_workspace(
     assert metadata["id"] == workspace.name
     assert metadata["status"] == "created"
     assert metadata["target"] is None
-    assert metadata["argus_version"] == __version__
+    assert metadata["astranyx_version"] == __version__
     assert metadata["trace_enabled"] is False
     assert metadata["modules"] == []
     assert metadata["findings"] == {

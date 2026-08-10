@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Renamed Argus to Astranyx.
+- Renamed the Python distribution, package, and command-line interface to `astranyx`.
+- Renamed the Orion CI and telemetry namespaces to Astranyx.
+- Updated project and report metadata for the new repository identity.
+- Prepared the breaking `4.0.0a1` alpha release.
+
 ## [3.1.0a1] - 2026-08-10
 
 - Added the unified `argus investigate <target>` pipeline.

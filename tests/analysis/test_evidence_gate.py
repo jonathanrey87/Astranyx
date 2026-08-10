@@ -1,11 +1,11 @@
 import pytest
 
-from argus.analysis.evidence_gate import (
+from astranyx.analysis.evidence_gate import (
     EvidenceGate,
     EvidenceGateStage,
     FindingEvidence,
 )
-from argus.analysis.pipeline import AnalysisPipeline
+from astranyx.analysis.pipeline import AnalysisPipeline
 
 
 @pytest.fixture

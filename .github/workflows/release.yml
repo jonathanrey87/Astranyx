@@ -75,10 +75,10 @@ jobs:
 
       - name: Smoke-test wheel
         run: |
-          python -m venv "${RUNNER_TEMP}/argus-release"
-          "${RUNNER_TEMP}/argus-release/bin/python" -m pip install dist/*.whl
-          actual="$("${RUNNER_TEMP}/argus-release/bin/argus" --version)"
-          expected="argus ${RELEASE_TAG#v}"
+          python -m venv "${RUNNER_TEMP}/astranyx-release"
+          "${RUNNER_TEMP}/astranyx-release/bin/python" -m pip install dist/*.whl
+          actual="$("${RUNNER_TEMP}/astranyx-release/bin/astranyx" --version)"
+          expected="astranyx ${RELEASE_TAG#v}"
           test "$actual" = "$expected"
           echo "Validated CLI version: $actual"
 
@@ -94,7 +94,7 @@ jobs:
       - name: Retain workflow artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: argus-${{ env.RELEASE_TAG }}
+          name: astranyx-${{ env.RELEASE_TAG }}
           path: dist/
           if-no-files-found: error
           retention-days: 90

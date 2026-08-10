@@ -1,5 +1,5 @@
-from argus.graph.dfg import DataFlowGraph
-from argus.models.ir import (
+from astranyx.graph.dfg import DataFlowGraph
+from astranyx.models.ir import (
     IRCall,
     IRFunction,
     IRModule,
