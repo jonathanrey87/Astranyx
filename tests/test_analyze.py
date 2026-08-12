@@ -29,11 +29,24 @@ def test_analyze_javascript_patterns_and_routes(
     assert findings["network_fetch"] == 1
     assert findings["axios"] == 1
     assert findings["auth"] == 1
+    assert "uploads" not in findings
 
     assert report["routes"] == [
         "/api/profile",
         "https://example.com/api/status",
     ]
+
+
+def test_analyze_detects_whole_word_upload_pattern(tmp_path):
+    bundle = tmp_path / "upload.js"
+    bundle.write_text(
+        'const attachment = "evidence";',
+        encoding="utf-8",
+    )
+
+    report = analyze(tmp_path)
+
+    assert report["summary"]["upload.js"]["uploads"] == 1
 
 
 def test_analyze_writes_json_report(tmp_path):

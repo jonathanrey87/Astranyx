@@ -232,6 +232,7 @@ def run(
     else:
         status = "failed"
 
+    manager.load()
     manager.finish_with_status(status)
     manifest_path = _write_manifest(
         workspace,

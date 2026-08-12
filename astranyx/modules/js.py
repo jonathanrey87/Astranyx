@@ -15,7 +15,7 @@ PATTERNS = {
     "graphql": r"graphql|mutation|operationName|query",
     "oauth": r"oauth|saml|scim|sso",
     "auth": r"token|csrf|session|cookie|webauthn|passkey",
-    "uploads": r"upload|attachment|file|files|import|export",
+    "uploads": r"\b(?:uploads?|attachments?|files?|imports?|exports?)\b",
     "collaboration": (r"invite|team|organization|workspace|member|permission|comment"),
     "admin": r"admin|internal|staff|employee",
 }
