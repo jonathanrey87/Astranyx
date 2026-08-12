@@ -6,7 +6,7 @@
 
 Where signals emerge from the dark.
 
-`Version 4.0.0a1` · `Alpha` · `Python 3.11+`
+`Version 4.0.0a2` · `Alpha` · `Python 3.11+`
 
 </div>
 
