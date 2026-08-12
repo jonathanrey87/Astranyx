@@ -151,3 +151,5 @@ def test_investigate_cli_runs_target_pipeline(
     metadata = json.loads((workspaces[0] / "metadata.json").read_text(encoding="utf-8"))
     assert metadata["status"] == "completed"
     assert metadata["selected_modules"] == ["javascript"]
+    assert [module["name"] for module in metadata["modules"]] == ["javascript"]
+    assert metadata["modules"][0]["status"] == "completed"
