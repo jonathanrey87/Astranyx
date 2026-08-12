@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## [4.0.0a2] - 2026-08-12
+
+- Fixed successful JavaScript module records being overwritten during investigation finalization.
+- Fixed upload-pattern matching incorrectly classifying routes such as `/api/profile` as file uploads.
+
 ## [4.0.0a1] - 2026-08-10
 
 - Renamed Argus to Astranyx.
