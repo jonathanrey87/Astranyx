@@ -8,11 +8,42 @@ Where signals emerge from the dark.
 
 `Version 4.0.0a5` · `Alpha` · `Python 3.11+`
 
+[Quick start](#requirements) · [Investigation workflow](#run-an-investigation) · [Remediation review](#compare-a-baseline-and-retest) · [Roadmap](ROADMAP.md)
+
 </div>
 
 Astranyx is a security-analysis framework for reviewing source code, JavaScript bundles, and WordPress plugins.
 
 It combines pattern discovery, data-flow analysis, validation evidence, confidence scoring, attack-surface classification, and reporting—helping analysts separate suspicious behavior from findings with demonstrated security impact.
+
+## From source to remediation
+
+```mermaid
+flowchart LR
+    A[Source code & bundles] --> B[Analyze & correlate]
+    B --> C[Review evidence & confidence]
+    C --> D[Investigation reports]
+    D --> E[Compare baseline & retest]
+    E --> F[Prioritize remediation]
+    F --> G[Verify fixes]
+    G --> E
+    style A fill:#122136,stroke:#65dfcf,color:#e7edf6
+    style B fill:#122136,stroke:#65dfcf,color:#e7edf6
+    style C fill:#122136,stroke:#65dfcf,color:#e7edf6
+    style D fill:#122136,stroke:#65dfcf,color:#e7edf6
+    style E fill:#123c43,stroke:#65dfcf,color:#e7edf6
+    style F fill:#123c43,stroke:#65dfcf,color:#e7edf6
+    style G fill:#123c43,stroke:#65dfcf,color:#e7edf6
+```
+
+### See what changed
+
+![Astranyx offline remediation dashboard showing comparison counts, outcome filters, and finding review guidance](docs/images/remediation-review.png)
+
+*Synthetic demonstration data. The offline retest dashboard highlights new,
+recurring, changed, and regressed findings, with before-and-after evidence.
+Findings absent from the current report are labeled **Not observed** until a
+reviewer verifies remediation and equivalent scan coverage.*
 
 ## Core principles
 
@@ -105,7 +136,7 @@ Astranyx contains support for:
 Finding JSON uses a versioned schema distributed with the package. Each finding
 has an `asx-` fingerprint derived from its category, relative file path, and
 normalized evidence. The identity remains stable when a checkout moves or line
-numbers change, enabling future baseline and retest workflows. SARIF exports
+numbers change, supporting baseline and retest workflows. SARIF exports
 carry the same identity in `partialFingerprints`.
 
 ## Requirements
@@ -302,7 +333,14 @@ astranyx retest baseline/findings.json current/findings.json \
 
 The sealed retest bundle classifies findings as new, fixed, persistent, changed,
 or regressed. It contains machine-readable JSON, a client-readable Markdown
-summary, and a SHA-256 artifact manifest.
+summary, an offline HTML dashboard (`index.html`), and a SHA-256 artifact manifest
+covering all three reports. Open `reports/retest/index.html` in your browser to
+filter outcomes, search findings, and inspect before-and-after evidence.
+
+The dashboard labels the JSON `fixed` category **Not observed**: absence alone
+does not verify a fix. Confirm equivalent scan coverage before closing a finding.
+Review guidance is provided per outcome; owner assignment and persisted review
+history are not yet part of this dashboard.
 
 ### Run an investigation
 

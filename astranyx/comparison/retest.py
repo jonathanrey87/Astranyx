@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from astranyx.comparison.dashboard import render as render_dashboard
+
 MAX_REPORT_BYTES = 50 * 1024 * 1024
 SUPPORTED_SCHEMA_VERSION = 1
 SEVERITY_RANK = {"Info": 0, "Low": 1, "Medium": 2, "High": 3, "Critical": 4}
@@ -203,14 +205,15 @@ def _write_exclusive(path: Path, content: str) -> None:
 def write_report(
     baseline: str | Path, current: str | Path, output: str | Path
 ) -> dict[str, Any]:
-    """Write a sealed JSON and Markdown retest bundle."""
+    """Write a sealed JSON, Markdown, and offline HTML retest bundle."""
     result = compare(baseline, current)
     output_path = Path(output)
     output_path.mkdir(parents=True, exist_ok=True)
     json_path = output_path / "retest.json"
     markdown_path = output_path / "retest.md"
+    html_path = output_path / "index.html"
     manifest_path = output_path / "manifest.json"
-    paths = (json_path, markdown_path, manifest_path)
+    paths = (json_path, markdown_path, html_path, manifest_path)
     if any(path.exists() for path in paths):
         conflict = next(path for path in paths if path.exists())
         raise RetestError(f"refusing to overwrite existing output: {conflict}")
@@ -219,8 +222,9 @@ def write_report(
     _write_exclusive(json_path, rendered_json)
     try:
         _write_exclusive(markdown_path, _markdown(result))
+        _write_exclusive(html_path, render_dashboard(result))
         artifacts = []
-        for path in (json_path, markdown_path):
+        for path in (json_path, markdown_path, html_path):
             content = path.read_bytes()
             artifacts.append(
                 {
