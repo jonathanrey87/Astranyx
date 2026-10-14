@@ -93,6 +93,16 @@ def main():
     if report["errors"]:
         raise SystemExit("AI investigation completed with errors")
 
+def run_demo(*, output="demo-output", live=False):
+    import sys
 
+    previous = sys.argv
+    try:
+        sys.argv = ["muse_investigation", "--output", output]
+        if live:
+            sys.argv.append("--live")
+        main()
+    finally:
+        sys.argv = previous
 if __name__ == "__main__":
     main()
