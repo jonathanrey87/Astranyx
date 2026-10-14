@@ -35,7 +35,11 @@ class AnalysisPipeline:
         return context
 
 
-def build_default_pipeline() -> AnalysisPipeline:
+def build_default_pipeline(
+    *,
+    enable_ai: bool = False,
+    provider=None,
+) -> AnalysisPipeline:
     """
     Builds the default Astranyx analysis pipeline.
 
@@ -50,5 +54,13 @@ def build_default_pipeline() -> AnalysisPipeline:
     pipeline.register(AuthorizationDifferentialStage())
     pipeline.register(EvidenceGateStage())
     pipeline.register(AttackSurfaceStage())
+
+    if enable_ai:
+        if provider is None:
+            raise ValueError("An explicit AI provider is required when enable_ai=True")
+
+        from astranyx.ai.stage import AIInvestigationStage
+
+        pipeline.register(AIInvestigationStage(provider))
 
     return pipeline
