@@ -23,6 +23,7 @@ def render_dashboard(report: dict[str, Any]) -> str:
             <article class="finding">
                 <div class="finding-top">
                     <span class="tag">AI ANALYSIS · UNVERIFIED</span>
+                    <span class="sr-only"> | </span>
                     <span class="status">AWAITING VALIDATION</span>
                 </div>
                 <h2>{fingerprint}</h2>
@@ -136,6 +137,17 @@ h1 {{ font-size: clamp(28px, 4vw, 44px); margin: 12px 0; }}
     gap: 12px;
     justify-content: space-between;
     align-items: center;
+}}
+.sr-only {{
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }}
 .tag {{
     color: #ffca77;
