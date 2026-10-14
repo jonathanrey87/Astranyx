@@ -77,3 +77,30 @@ def test_verify_rejects_unsafe_and_duplicate_paths(tmp_path):
         "duplicate artifact path",
         "unsafe artifact path",
     ]
+
+
+def test_verify_rejects_internal_symlink_artifact(tmp_path):
+    """An evidence artifact must not be a symlink alias."""
+    original = tmp_path / "original.txt"
+    original.write_text("evidence")
+
+    alias = tmp_path / "alias.txt"
+    alias.symlink_to(original)
+
+    write_manifest(
+        tmp_path,
+        [
+            {
+                "path": "alias.txt",
+                "size_bytes": len(original.read_bytes()),
+                "sha256": hashlib.sha256(original.read_bytes()).hexdigest(),
+            }
+        ],
+    )
+
+    result = integrity.verify(tmp_path)
+
+    assert result["valid"] is False
+    assert any(
+        failure["reason"] == "unsafe artifact path" for failure in result["failures"]
+    )
