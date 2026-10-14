@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
-
 from dataclasses import dataclass
+from pathlib import Path
 
 from astranyx.analysis.authorization import (
     AccessPath,
@@ -14,7 +13,6 @@ from astranyx.analysis.authorization import (
     AuthorizationDifferentialAnalyzer,
     AuthorizationPolicy,
 )
-
 
 REGISTER = re.compile(r"\bregister_rest_route\s*\(")
 FUNCTION = re.compile(r"\bfunction\s+([A-Za-z_]\w*)\s*\([^)]*\)")
