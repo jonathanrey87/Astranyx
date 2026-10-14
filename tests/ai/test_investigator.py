@@ -7,11 +7,13 @@ class MockProvider:
     def generate(self, prompt):
         assert "authorization" in prompt
 
-        return json.dumps({
-            "summary": "Possible authorization weakness",
-            "impact": "Unauthorized access requires verification",
-            "next_step": "Compare authorized and unauthorized responses",
-        })
+        return json.dumps(
+            {
+                "summary": "Possible authorization weakness",
+                "impact": "Unauthorized access requires verification",
+                "next_step": "Compare authorized and unauthorized responses",
+            }
+        )
 
 
 def test_ai_investigator():

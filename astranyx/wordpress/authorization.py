@@ -30,9 +30,7 @@ CURRENT_USER_CAN = re.compile(
     r"\bcurrent_user_can\s*\(\s*['\"](?P<capability>[^'\"]+)['\"]"
 )
 AUTHENTICATED = re.compile(r"\b(?:is_user_logged_in|wp_get_current_user)\s*\(")
-POLICY_CALL = re.compile(
-    r"\b(?P<name>[A-Za-z_]\w*user_can_[A-Za-z_]\w*)\s*\("
-)
+POLICY_CALL = re.compile(r"\b(?P<name>[A-Za-z_]\w*user_can_[A-Za-z_]\w*)\s*\(")
 POST_TYPE_CONSTANT = re.compile(r"::PT_(?P<name>[A-Z][A-Z0-9_]*)\b")
 POST_TYPE_LITERAL = re.compile(
     r"['\"]post_type['\"]\s*=>\s*['\"](?P<name>[a-z][a-z0-9_-]*)['\"]"

@@ -428,9 +428,6 @@ def main():
 
     ai_demo_parser.set_defaults(func=run_ai_demo)
 
-
-
-
     # Read-only iOS evidence commands
     device_parser = subparsers.add_parser(
         "device",

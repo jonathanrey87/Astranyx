@@ -12,7 +12,7 @@ def completed(stdout="", stderr="", returncode=0):
 
 
 def test_doctor_reports_missing_optional_dependency(monkeypatch):
-    monkeypatch.setattr(ios, '_find_tool', lambda which: None)
+    monkeypatch.setattr(ios, "_find_tool", lambda which: None)
     result = ios.doctor(which=lambda _: None)
 
     assert result == {

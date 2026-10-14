@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -65,13 +64,10 @@ def build_default_pipeline(
     # Optional AI investigation stage
     if enable_ai:
         if provider is None:
-            raise ValueError(
-                "An explicit AI provider is required when enable_ai=True"
-            )
+            raise ValueError("An explicit AI provider is required when enable_ai=True")
 
         from astranyx.ai.stage import AIInvestigationStage
 
         pipeline.register(AIInvestigationStage(provider))
 
     return pipeline
-

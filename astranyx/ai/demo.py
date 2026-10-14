@@ -1,4 +1,3 @@
-
 """Astranyx end-to-end AI investigation demonstration."""
 
 import argparse
@@ -22,8 +21,7 @@ class DemoProvider:
             {
                 "summary": "Possible broken object-level authorization",
                 "impact": (
-                    "Cross-account exposure is possible "
-                    "but remains unverified"
+                    "Cross-account exposure is possible " "but remains unverified"
                 ),
                 "next_step": (
                     "Use two authorized test accounts to "
@@ -93,6 +91,7 @@ def main():
     if report["errors"]:
         raise SystemExit("AI investigation completed with errors")
 
+
 def run_demo(*, output="demo-output", live=False):
     """Execute the synthetic investigation without modifying CLI state."""
     finding = {
@@ -114,20 +113,18 @@ def run_demo(*, output="demo-output", live=False):
         provider=provider,
     )
 
-    result = pipeline.execute({
-        "finding_evidence": [],
-        "ai_findings": [finding],
-    })
+    result = pipeline.execute(
+        {
+            "finding_evidence": [],
+            "ai_findings": [finding],
+        }
+    )
 
     report = build_ai_report(result)
 
     output_dir = Path(output)
-    json_path = write_ai_json(
-        report, output_dir / "ai-investigation.json"
-    )
-    html_path = write_ai_html(
-        report, output_dir / "ai-investigation.html"
-    )
+    json_path = write_ai_json(report, output_dir / "ai-investigation.json")
+    html_path = write_ai_html(report, output_dir / "ai-investigation.html")
 
     print(json.dumps(report, indent=2))
     print(f"\nJSON report: {json_path}")
@@ -135,5 +132,7 @@ def run_demo(*, output="demo-output", live=False):
 
     if report["errors"]:
         raise SystemExit("AI investigation completed with errors")
+
+
 if __name__ == "__main__":
     main()

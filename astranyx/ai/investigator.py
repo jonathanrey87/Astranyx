@@ -38,8 +38,7 @@ class AIInvestigator:
             "Do not claim a vulnerability is confirmed. "
             "Return only a JSON object with string fields: "
             "summary, impact, next_step. "
-            "Do not invent evidence.\n\n"
-            + json.dumps(selected)
+            "Do not invent evidence.\n\n" + json.dumps(selected)
         )
 
         response = self.provider.generate(prompt)
