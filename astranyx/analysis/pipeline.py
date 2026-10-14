@@ -1,3 +1,4 @@
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -41,26 +42,36 @@ def build_default_pipeline(
     provider=None,
 ) -> AnalysisPipeline:
     """
-    Builds the default Astranyx analysis pipeline.
+    Build the default Astranyx analysis pipeline.
 
-    The local import avoids a circular import because EvidenceGateStage
-    inherits from AnalysisStage.
+    AI investigation is disabled by default.
+
+    When enabled, an explicit provider must be supplied.
+    The AI stage runs after the deterministic analysis stages.
     """
+
+    # Local imports prevent circular dependencies.
     from astranyx.analysis.attack_surface import AttackSurfaceStage
     from astranyx.analysis.authorization import AuthorizationDifferentialStage
     from astranyx.analysis.evidence_gate import EvidenceGateStage
 
     pipeline = AnalysisPipeline()
+
+    # Deterministic analysis stages
     pipeline.register(AuthorizationDifferentialStage())
     pipeline.register(EvidenceGateStage())
     pipeline.register(AttackSurfaceStage())
 
+    # Optional AI investigation stage
     if enable_ai:
         if provider is None:
-            raise ValueError("An explicit AI provider is required when enable_ai=True")
+            raise ValueError(
+                "An explicit AI provider is required when enable_ai=True"
+            )
 
         from astranyx.ai.stage import AIInvestigationStage
 
         pipeline.register(AIInvestigationStage(provider))
 
     return pipeline
+
