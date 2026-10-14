@@ -94,15 +94,46 @@ def main():
         raise SystemExit("AI investigation completed with errors")
 
 def run_demo(*, output="demo-output", live=False):
-    import sys
+    """Execute the synthetic investigation without modifying CLI state."""
+    finding = {
+        "category": "authorization",
+        "severity": "high",
+        "evidence": (
+            "Synthetic lab: account B retrieves account A's test "
+            "invoice using a modified object identifier."
+        ),
+        "reason": "Potential missing ownership validation",
+        "fingerprint": "asx-muse-demo-001",
+        "data_classification": "synthetic",
+    }
 
-    previous = sys.argv
-    try:
-        sys.argv = ["muse_investigation", "--output", output]
-        if live:
-            sys.argv.append("--live")
-        main()
-    finally:
-        sys.argv = previous
+    provider = MuseProvider() if live else DemoProvider()
+
+    pipeline = build_default_pipeline(
+        enable_ai=True,
+        provider=provider,
+    )
+
+    result = pipeline.execute({
+        "finding_evidence": [],
+        "ai_findings": [finding],
+    })
+
+    report = build_ai_report(result)
+
+    output_dir = Path(output)
+    json_path = write_ai_json(
+        report, output_dir / "ai-investigation.json"
+    )
+    html_path = write_ai_html(
+        report, output_dir / "ai-investigation.html"
+    )
+
+    print(json.dumps(report, indent=2))
+    print(f"\nJSON report: {json_path}")
+    print(f"HTML report: {html_path}")
+
+    if report["errors"]:
+        raise SystemExit("AI investigation completed with errors")
 if __name__ == "__main__":
     main()
