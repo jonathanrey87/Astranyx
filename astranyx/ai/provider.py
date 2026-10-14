@@ -2,13 +2,29 @@
 
 import os
 
-from openai import (
-    APIConnectionError,
-    APIStatusError,
-    APITimeoutError,
-    OpenAI,
-    RateLimitError,
-)
+
+def _load_openai():
+    try:
+        from openai import (
+            APIConnectionError,
+            APIStatusError,
+            APITimeoutError,
+            OpenAI,
+            RateLimitError,
+        )
+    except ImportError as exc:
+        raise MuseProviderError(
+            "Live Meta Muse requires the optional OpenAI SDK. "
+            "Install it with: python -m pip install openai"
+        ) from exc
+
+    return (
+        OpenAI,
+        RateLimitError,
+        APITimeoutError,
+        APIConnectionError,
+        APIStatusError,
+    )
 
 
 class MuseProviderError(RuntimeError):
@@ -24,12 +40,24 @@ class MuseProvider:
 
         if client is not None:
             self.client = client
+            self._rate_limit_error = ()
+            self._timeout_error = ()
+            self._connection_error = ()
+            self._status_error = ()
             return
 
         api_key = os.getenv("MODEL_API_KEY")
 
         if not api_key:
             raise MuseProviderError("MODEL_API_KEY is missing.")
+
+        (
+            OpenAI,
+            self._rate_limit_error,
+            self._timeout_error,
+            self._connection_error,
+            self._status_error,
+        ) = _load_openai()
 
         self.client = OpenAI(
             api_key=api_key,
@@ -68,16 +96,16 @@ class MuseProvider:
                 ],
             )
 
-        except RateLimitError as exc:
+        except self._rate_limit_error as exc:
             raise MuseProviderError("Meta Muse rate limit exceeded.") from exc
 
-        except APITimeoutError as exc:
+        except self._timeout_error as exc:
             raise MuseProviderError("Meta Muse request timed out.") from exc
 
-        except APIConnectionError as exc:
+        except self._connection_error as exc:
             raise MuseProviderError("Cannot connect to Meta Muse API.") from exc
 
-        except APIStatusError as exc:
+        except self._status_error as exc:
             if exc.status_code == 402:
                 raise MuseProviderError(
                     "META BILLING ERROR (HTTP 402): "
