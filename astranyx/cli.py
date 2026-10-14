@@ -422,7 +422,7 @@ def main():
     )
 
     def run_ai_demo(args):
-        from examples.muse_investigation import run_demo
+        from astranyx.ai.demo import run_demo
 
         run_demo(output=args.output, live=args.live)
 
