@@ -25,12 +25,22 @@ def _load_manifest(path: Path) -> dict[str, Any]:
 def _safe_artifact(root: Path, value: Any) -> Path | None:
     if not isinstance(value, str) or not value or Path(value).is_absolute():
         return None
-    candidate = (root / value).resolve()
+    relative = Path(value)
+    candidate = root
+
+    for component in relative.parts:
+        if component in {".", ".."}:
+            return None
+        candidate = candidate / component
+        if candidate.is_symlink():
+            return None
+
+    resolved = candidate.resolve()
     try:
-        candidate.relative_to(root)
+        resolved.relative_to(root)
     except ValueError:
         return None
-    return candidate
+    return resolved
 
 
 def verify(workspace: str | Path) -> dict[str, Any]:
