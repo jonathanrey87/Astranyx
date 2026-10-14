@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Added an offline remediation review dashboard to sealed retest bundles, with
+  outcome filters, search, before-and-after evidence, and review guidance.
+- Added a visual README workflow and a synthetic remediation dashboard preview.
 - Added evidence-backed authorization policy differential analysis for finding
   alternate access paths that omit required authentication, capability, role,
   ownership, tenant, or object-state controls.

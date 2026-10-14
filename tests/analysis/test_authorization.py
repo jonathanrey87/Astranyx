@@ -8,7 +8,6 @@ from astranyx.analysis.authorization import (
     AuthorizationPolicy,
 )
 
-
 VIEW = AuthorizationControl(
     "job-listing:view", "capability", "job_manager_user_can_view_job_listing"
 )

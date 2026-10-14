@@ -7,12 +7,11 @@ expected to emit only controls that guard the represented operation.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 from astranyx.analysis.pipeline import AnalysisStage
 from astranyx.core.finding import Finding
-
 
 CONTROL_KINDS = frozenset(
     {"authentication", "capability", "ownership", "role", "tenant", "object_state"}

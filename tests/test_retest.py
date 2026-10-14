@@ -90,6 +90,12 @@ def test_write_report_creates_sealed_retest_bundle(tmp_path):
     assert result["fixed"] == 1
     assert schema["properties"]["comparison_type"]["const"] == "baseline_retest"
     assert (output / "retest.json").is_file()
+    assert {item["path"] for item in manifest["artifacts"]} == {
+        "retest.json",
+        "retest.md",
+        "index.html",
+    }
+    assert "Not observed" in (output / "index.html").read_text()
     assert "Fixed: 1" in (output / "retest.md").read_text()
     for artifact in manifest["artifacts"]:
         path = output / artifact["path"]
@@ -119,3 +125,35 @@ def test_compare_rejects_invalid_reports(tmp_path, payload, message):
 
     with pytest.raises(retest.RetestError, match=message):
         retest.compare(baseline, current)
+
+
+def test_dashboard_shows_changes_and_escapes_finding_data(tmp_path):
+    from astranyx.comparison.dashboard import render
+
+    baseline = tmp_path / "baseline.json"
+    current = tmp_path / "current.json"
+    write_report(baseline, [finding("Changed", "old evidence", severity="Low")])
+    write_report(
+        current, [finding("Changed", '<script>alert("x")</script>', severity="High")]
+    )
+    page = render(retest.compare(baseline, current))
+    assert 'data-outcome="regressed"' in page
+    assert "old evidence" in page
+    assert "&lt;script&gt;" in page
+    assert '<script>alert("x")</script>' not in page
+    assert "Before" in page and "After" in page
+    assert "increased confidence alone" in page
+
+
+def test_dashboard_output_conflict_preserves_existing_file(tmp_path):
+    baseline = tmp_path / "baseline.json"
+    current = tmp_path / "current.json"
+    write_report(baseline, [])
+    write_report(current, [])
+    output = tmp_path / "output"
+    output.mkdir()
+    (output / "index.html").write_text("existing report")
+    with pytest.raises(retest.RetestError, match="refusing to overwrite"):
+        retest.write_report(baseline, current, output)
+    assert (output / "index.html").read_text() == "existing report"
+    assert not (output / "retest.json").exists()

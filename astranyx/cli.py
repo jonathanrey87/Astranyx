@@ -406,6 +406,28 @@ def main():
 
     subparsers = parser.add_subparsers(dest="command")
 
+    ai_demo_parser = subparsers.add_parser(
+        "ai-demo",
+        help="Run a synthetic AI investigation and export reports",
+    )
+    ai_demo_parser.add_argument(
+        "--output",
+        default="demo-output",
+        help="Directory for generated reports",
+    )
+    ai_demo_parser.add_argument(
+        "--live",
+        action="store_true",
+        help="Use Meta Muse Spark with synthetic evidence",
+    )
+
+    def run_ai_demo(args):
+        from astranyx.ai.demo import run_demo
+
+        run_demo(output=args.output, live=args.live)
+
+    ai_demo_parser.set_defaults(func=run_ai_demo)
+
     # Read-only iOS evidence commands
     device_parser = subparsers.add_parser(
         "device",
