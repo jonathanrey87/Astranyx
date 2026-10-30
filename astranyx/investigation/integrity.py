@@ -28,6 +28,8 @@ def _safe_artifact(root: Path, value: Any) -> Path | None:
     if not isinstance(value, str) or not value or Path(value).is_absolute():
         return None
     relative = Path(value)
+    if not relative.parts:
+        return None
     candidate = root
 
     for component in relative.parts:
