@@ -109,8 +109,23 @@ def test_verify_rejects_internal_symlink_artifact(tmp_path):
     )
 
 
+@pytest.mark.parametrize("path", [".", "./", "././"])
+def test_verify_rejects_workspace_root_artifact(tmp_path, path):
+    write_manifest(tmp_path, [{"path": path, "size_bytes": 0, "sha256": "0" * 64}])
+
+    result = integrity.verify(tmp_path)
+
+    assert result["valid"] is False
+    assert result["artifacts_checked"] == 0
+    assert result["failures"] == [
+        {"index": 0, "path": path, "reason": "unsafe artifact path"}
+    ]
+
+
 @pytest.mark.skipif(os.name != "posix", reason="POSIX dir_fd protections")
-def test_verify_rejects_final_symlink_swapped_after_path_validation(tmp_path, monkeypatch):
+def test_verify_rejects_final_symlink_swapped_after_path_validation(
+    tmp_path, monkeypatch
+):
     artifact = tmp_path / "artifact.txt"
     artifact.write_bytes(b"expected")
     outside = tmp_path.parent / (tmp_path.name + "-outside.txt")
@@ -142,7 +157,9 @@ def test_verify_rejects_final_symlink_swapped_after_path_validation(tmp_path, mo
 
 
 @pytest.mark.skipif(os.name != "posix", reason="POSIX dir_fd protections")
-def test_verify_rejects_intermediate_directory_swapped_to_symlink(tmp_path, monkeypatch):
+def test_verify_rejects_intermediate_directory_swapped_to_symlink(
+    tmp_path, monkeypatch
+):
     reports = tmp_path / "reports"
     reports.mkdir()
     artifact = reports / "artifact.txt"
