@@ -1,5 +1,8 @@
 import hashlib
 import json
+import os
+
+import pytest
 
 from astranyx.investigation import integrity
 
@@ -104,3 +107,89 @@ def test_verify_rejects_internal_symlink_artifact(tmp_path):
     assert any(
         failure["reason"] == "unsafe artifact path" for failure in result["failures"]
     )
+
+
+@pytest.mark.parametrize("path", [".", "./", "././"])
+def test_verify_rejects_workspace_root_artifact(tmp_path, path):
+    write_manifest(tmp_path, [{"path": path, "size_bytes": 0, "sha256": "0" * 64}])
+
+    result = integrity.verify(tmp_path)
+
+    assert result["valid"] is False
+    assert result["artifacts_checked"] == 0
+    assert result["failures"] == [
+        {"index": 0, "path": path, "reason": "unsafe artifact path"}
+    ]
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX dir_fd protections")
+def test_verify_rejects_final_symlink_swapped_after_path_validation(
+    tmp_path, monkeypatch
+):
+    artifact = tmp_path / "artifact.txt"
+    artifact.write_bytes(b"expected")
+    outside = tmp_path.parent / (tmp_path.name + "-outside.txt")
+    outside.write_bytes(b"expected")
+    write_manifest(tmp_path, [record(artifact, tmp_path)])
+
+    real_open = integrity.os.open
+    swapped = False
+
+    def swap_then_open(path, flags, *args, **kwargs):
+        nonlocal swapped
+        if path == "artifact.txt" and not swapped:
+            swapped = True
+            artifact.unlink()
+            artifact.symlink_to(outside)
+        return real_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(integrity.os, "open", swap_then_open)
+    try:
+        result = integrity.verify(tmp_path)
+    finally:
+        artifact.unlink(missing_ok=True)
+        outside.unlink(missing_ok=True)
+
+    assert swapped
+    assert result["valid"] is False
+    assert result["artifacts_checked"] == 0
+    assert result["failures"][0]["reason"].startswith("unreadable:")
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX dir_fd protections")
+def test_verify_rejects_intermediate_directory_swapped_to_symlink(
+    tmp_path, monkeypatch
+):
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    artifact = reports / "artifact.txt"
+    artifact.write_bytes(b"evidence")
+    outside = tmp_path.parent / (tmp_path.name + "-outside-dir")
+    outside.mkdir()
+    (outside / "artifact.txt").write_bytes(b"evidence")
+    write_manifest(tmp_path, [record(artifact, tmp_path)])
+
+    real_open = integrity.os.open
+    swapped = False
+
+    def swap_then_open(path, flags, *args, **kwargs):
+        nonlocal swapped
+        if path == "reports" and not swapped:
+            swapped = True
+            reports.rename(tmp_path / "reports-original")
+            reports.symlink_to(outside, target_is_directory=True)
+        return real_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(integrity.os, "open", swap_then_open)
+    try:
+        result = integrity.verify(tmp_path)
+    finally:
+        (tmp_path / "reports").unlink(missing_ok=True)
+        for p in outside.iterdir():
+            p.unlink()
+        outside.rmdir()
+
+    assert swapped
+    assert result["valid"] is False
+    assert result["artifacts_checked"] == 0
+    assert result["failures"][0]["reason"].startswith("unreadable:")

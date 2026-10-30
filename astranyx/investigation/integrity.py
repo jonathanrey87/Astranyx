@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import stat
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +28,8 @@ def _safe_artifact(root: Path, value: Any) -> Path | None:
     if not isinstance(value, str) or not value or Path(value).is_absolute():
         return None
     relative = Path(value)
+    if not relative.parts:
+        return None
     candidate = root
 
     for component in relative.parts:
@@ -41,6 +45,32 @@ def _safe_artifact(root: Path, value: Any) -> Path | None:
     except ValueError:
         return None
     return resolved
+
+
+def _read_artifact_nofollow(root: Path, relative: Path) -> bytes:
+    """Read through directory handles, never following symlinks on POSIX."""
+    if os.name != "posix":
+        # Windows does not support this POSIX dir_fd/O_NOFOLLOW strategy.
+        return (root / relative).read_bytes()
+
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    file_flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0)
+    fd = os.open(root, directory_flags)
+    try:
+        for component in relative.parts[:-1]:
+            next_fd = os.open(component, directory_flags, dir_fd=fd)
+            os.close(fd)
+            fd = next_fd
+        artifact_fd = os.open(relative.parts[-1], file_flags, dir_fd=fd)
+        try:
+            if not stat.S_ISREG(os.fstat(artifact_fd).st_mode):
+                raise OSError("artifact is not a regular file")
+            with os.fdopen(artifact_fd, "rb", closefd=False) as stream:
+                return stream.read()
+        finally:
+            os.close(artifact_fd)
+    finally:
+        os.close(fd)
 
 
 def verify(workspace: str | Path) -> dict[str, Any]:
@@ -72,7 +102,7 @@ def verify(workspace: str | Path) -> dict[str, Any]:
         seen.add(normalized)
 
         try:
-            content = artifact.read_bytes()
+            content = _read_artifact_nofollow(root, artifact.relative_to(root))
         except OSError as exc:
             failures.append(
                 {"index": index, "path": relative, "reason": f"unreadable: {exc}"}
