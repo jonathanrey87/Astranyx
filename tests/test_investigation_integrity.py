@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+from pathlib import Path
 
 import pytest
 
@@ -193,3 +194,60 @@ def test_verify_rejects_intermediate_directory_swapped_to_symlink(
     assert result["valid"] is False
     assert result["artifacts_checked"] == 0
     assert result["failures"][0]["reason"].startswith("unreadable:")
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX symlink regression")
+def test_verify_rejects_artifact_resolved_to_workspace_root(tmp_path, monkeypatch):
+    artifact = tmp_path / "artifact.txt"
+    artifact.write_bytes(b"evidence")
+    write_manifest(tmp_path, [record(artifact, tmp_path)])
+    real_resolve = Path.resolve
+    swapped = False
+
+    def swap_then_resolve(path, *args, **kwargs):
+        nonlocal swapped
+        if path == artifact and not swapped:
+            swapped = True
+            artifact.unlink()
+            artifact.symlink_to(tmp_path, target_is_directory=True)
+        return real_resolve(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "resolve", swap_then_resolve)
+    result = integrity.verify(tmp_path)
+
+    assert swapped
+    assert result["valid"] is False
+    assert result["artifacts_checked"] == 0
+    assert result["failures"] == [
+        {"index": 0, "path": "artifact.txt", "reason": "unsafe artifact path"}
+    ]
+
+
+@pytest.mark.skipif(
+    os.name != "posix" or not hasattr(os, "O_PATH"), reason="requires Linux O_PATH"
+)
+@pytest.mark.parametrize("restricted", ["workspace", "intermediate"])
+def test_verify_accepts_search_only_directories(tmp_path, restricted):
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    artifact = reports / "artifact.txt"
+    artifact.write_bytes(b"evidence")
+    write_manifest(tmp_path, [record(artifact, tmp_path)])
+    directory = tmp_path if restricted == "workspace" else reports
+    original_mode = directory.stat().st_mode & 0o777
+    directory.chmod(0o111)
+    try:
+        # Do not claim permission coverage when root/capabilities bypass it.
+        try:
+            os.listdir(directory)
+        except PermissionError:
+            pass
+        else:
+            pytest.skip("test user can bypass directory read permissions")
+        assert artifact.read_bytes() == b"evidence"
+        result = integrity.verify(tmp_path)
+        assert result["valid"] is True, result
+        assert result["artifacts_checked"] == 1
+        assert result["failures"] == []
+    finally:
+        directory.chmod(original_mode)
