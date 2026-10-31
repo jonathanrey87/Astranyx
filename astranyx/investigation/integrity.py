@@ -41,7 +41,8 @@ def _safe_artifact(root: Path, value: Any) -> Path | None:
 
     resolved = candidate.resolve()
     try:
-        resolved.relative_to(root)
+        if not resolved.relative_to(root).parts:
+            return None
     except ValueError:
         return None
     return resolved
@@ -53,7 +54,10 @@ def _read_artifact_nofollow(root: Path, relative: Path) -> bytes:
         # Windows does not support this POSIX dir_fd/O_NOFOLLOW strategy.
         return (root / relative).read_bytes()
 
-    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    # O_PATH avoids requiring directory-listing permission on Linux.
+    directory_flags = (
+        getattr(os, "O_PATH", os.O_RDONLY) | os.O_DIRECTORY | os.O_NOFOLLOW
+    )
     file_flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0)
     fd = os.open(root, directory_flags)
     try:
