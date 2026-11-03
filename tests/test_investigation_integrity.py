@@ -251,3 +251,16 @@ def test_verify_accepts_search_only_directories(tmp_path, restricted):
         assert result["failures"] == []
     finally:
         directory.chmod(original_mode)
+
+
+def test_verify_returns_verified_manifest(tmp_path):
+    artifact = tmp_path / "evidence.txt"
+    artifact.write_bytes(b"original")
+
+    write_manifest(tmp_path, [record(artifact, tmp_path)])
+
+    result = integrity.verify(tmp_path)
+
+    assert result["valid"] is True
+    assert result["verified_manifest"]["investigation"]["id"] == "INV-TEST"
+    assert result["verified_manifest"]["artifacts"][0]["path"] == "evidence.txt"

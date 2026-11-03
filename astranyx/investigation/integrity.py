@@ -148,4 +148,5 @@ def verify(workspace: str | Path) -> dict[str, Any]:
         "artifacts_checked": checked,
         "valid": not failures,
         "failures": failures,
+        "verified_manifest": manifest,
     }
