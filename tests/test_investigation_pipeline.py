@@ -290,3 +290,54 @@ def test_investigate_cli_resumes_workspace(tmp_path, monkeypatch):
         (initial["workspace"] / "metadata.json").read_text(encoding="utf-8")
     )
     assert metadata["status"] == "completed"
+
+
+def test_resume_does_not_reread_verified_manifest(tmp_path, monkeypatch):
+    target = _write_web_target(tmp_path)
+    original_wordpress = orchestrator._run_wordpress
+    attempts = 0
+
+    def fail_once(*args, **kwargs):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise RuntimeError("interrupted analyzer")
+        return original_wordpress(*args, **kwargs)
+
+    monkeypatch.setattr(orchestrator, "_run_wordpress", fail_once)
+
+    initial = orchestrator.run(
+        target,
+        profile="web",
+        workspace_root=tmp_path / "investigations",
+    )
+
+    manifest_path = initial["workspace"] / "manifest.json"
+    original_read_text = orchestrator.Path.read_text
+    original_verify = orchestrator.integrity.verify
+    verification_calls = 0
+
+    def guarded_read_text(path, *args, **kwargs):
+        if path == manifest_path:
+            raise AssertionError("manifest reread after verification")
+        return original_read_text(path, *args, **kwargs)
+
+    def verify_then_guard(root):
+        nonlocal verification_calls
+        verification_calls += 1
+        result = original_verify(root)
+
+        assert result["valid"] is True
+        assert "verified_manifest" in result
+
+        monkeypatch.setattr(orchestrator.Path, "read_text", guarded_read_text)
+        return result
+
+    monkeypatch.setattr(orchestrator.integrity, "verify", verify_then_guard)
+
+    resumed = orchestrator.resume(initial["workspace"])
+
+    assert verification_calls == 1
+    assert attempts == 2
+    assert resumed["status"] == "completed"
+    assert resumed["failures"] == []

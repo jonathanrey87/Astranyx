@@ -364,7 +364,7 @@ def resume(
             raise integrity.IntegrityError(
                 "investigation artifacts failed integrity verification"
             )
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest = verification["verified_manifest"]
         sealed_context = manifest.get("investigation", {})
         context_fields = ("id", "target", "profile", "selected_modules")
         mismatches = [
