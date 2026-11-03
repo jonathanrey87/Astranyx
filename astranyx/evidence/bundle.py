@@ -11,6 +11,12 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+from astranyx.evidence.safe_reader import (
+    SafeReadError,
+    SizeLimitExceeded,
+    read_bounded,
+)
+
 MAX_SOURCE_BYTES = 10_485_760
 MAX_BUNDLE_BYTES = 52_428_800
 MAX_PLAN_BYTES = 10_485_760
@@ -252,77 +258,139 @@ def _safe_child(root: Path, value: Any) -> Path:
 
 
 def verify_bundle(bundle: str | Path) -> dict[str, Any]:
+    """Verify an evidence bundle using bounded, symlink-safe reads."""
     root = Path(bundle).expanduser().resolve()
+
     try:
-        if (root / "manifest.json").stat().st_size > MAX_PLAN_BYTES:
-            raise EvidenceError("evidence manifest exceeds 10 MiB")
-        if (root / "seal.json").stat().st_size > MAX_PLAN_BYTES:
-            raise EvidenceError("evidence seal exceeds 10 MiB")
-        manifest_bytes = (root / "manifest.json").read_bytes()
+        manifest_bytes = read_bounded(root, "manifest.json", MAX_PLAN_BYTES)
+        seal_bytes = read_bounded(root, "seal.json", MAX_PLAN_BYTES)
         manifest = json.loads(manifest_bytes)
-        seal = json.loads((root / "seal.json").read_text(encoding="utf-8"))
-    except EvidenceError:
-        raise
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        seal = json.loads(seal_bytes)
+    except SizeLimitExceeded as exc:
+        raise EvidenceError("evidence metadata size limit exceeded") from exc
+    except (OSError, SafeReadError, UnicodeError, json.JSONDecodeError) as exc:
         raise EvidenceError(f"unable to read evidence bundle: {exc}") from exc
-    failures = []
+
+    if not isinstance(manifest, dict) or not isinstance(seal, dict):
+        raise EvidenceError("invalid evidence bundle metadata")
+
     if manifest.get("schema_version") != 1 or seal.get("schema_version") != 1:
         raise EvidenceError("unsupported evidence bundle schema")
+
+    failures = []
+
     if seal.get("manifest_sha256") != _sha256(manifest_bytes):
-        failures.append({"path": "manifest.json", "reason": "seal mismatch"})
+        failures.append(
+            {
+                "path": "manifest.json",
+                "reason": "seal mismatch",
+            }
+        )
+
     records = manifest.get("artifacts")
+
     if not isinstance(records, list):
         raise EvidenceError("invalid evidence manifest")
+
     index_records = [
         record
         for record in records
         if isinstance(record, dict) and record.get("path") == "index.json"
     ]
+
     if len(index_records) != 1:
         raise EvidenceError("evidence manifest must contain exactly one index")
+
     seen = set()
     total_checked_bytes = 0
+    index_content = None
+
     for record in records:
         if not isinstance(record, dict):
             raise EvidenceError("invalid evidence artifact record")
+
         artifact = _safe_child(root, record.get("path"))
         relative = artifact.relative_to(root).as_posix()
+
         if relative in seen:
-            failures.append({"path": relative, "reason": "duplicate path"})
-            continue
-        seen.add(relative)
-        try:
-            actual_size = artifact.stat().st_size
-            per_file_limit = (
-                MAX_PLAN_BYTES if relative == "index.json" else MAX_SOURCE_BYTES
+            failures.append(
+                {
+                    "path": relative,
+                    "reason": "duplicate path",
+                }
             )
-            if (
-                actual_size > per_file_limit
-                or total_checked_bytes + actual_size > MAX_BUNDLE_BYTES
-            ):
-                failures.append({"path": relative, "reason": "size limit exceeded"})
-                continue
-            total_checked_bytes += actual_size
-            content = artifact.read_bytes()
-        except OSError:
-            failures.append({"path": relative, "reason": "unreadable"})
             continue
+
+        seen.add(relative)
+
+        per_file_limit = (
+            MAX_PLAN_BYTES if relative == "index.json" else MAX_SOURCE_BYTES
+        )
+
+        remaining = MAX_BUNDLE_BYTES - total_checked_bytes
+        limit = min(per_file_limit, remaining)
+
+        try:
+            content = read_bounded(root, relative, limit)
+        except SizeLimitExceeded:
+            failures.append(
+                {
+                    "path": relative,
+                    "reason": "size limit exceeded",
+                }
+            )
+            continue
+        except (OSError, SafeReadError):
+            failures.append(
+                {
+                    "path": relative,
+                    "reason": "unreadable",
+                }
+            )
+            continue
+
+        total_checked_bytes += len(content)
+
+        if relative == "index.json":
+            index_content = content
+
         if len(content) != record.get("size_bytes"):
-            failures.append({"path": relative, "reason": "size mismatch"})
+            failures.append(
+                {
+                    "path": relative,
+                    "reason": "size mismatch",
+                }
+            )
+
         if _sha256(content) != record.get("sha256"):
-            failures.append({"path": relative, "reason": "SHA-256 mismatch"})
+            failures.append(
+                {
+                    "path": relative,
+                    "reason": "SHA-256 mismatch",
+                }
+            )
+
+    if index_content is None:
+        raise EvidenceError("unable to read evidence index")
+
     try:
-        if (root / "index.json").stat().st_size > MAX_PLAN_BYTES:
-            raise EvidenceError("evidence index exceeds 10 MiB")
-        index_document = json.loads((root / "index.json").read_text(encoding="utf-8"))
-    except EvidenceError:
-        raise
-    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-        raise EvidenceError(f"unable to read evidence index: {exc}") from exc
+        index_document = json.loads(index_content)
+    except (UnicodeError, json.JSONDecodeError) as exc:
+        raise EvidenceError("invalid evidence index") from exc
+
+    if not isinstance(index_document, dict):
+        raise EvidenceError("invalid evidence index")
+
     if index_document.get("plan_id") != manifest.get("plan_id") or index_document.get(
         "plan_sha256"
     ) != manifest.get("plan_sha256"):
-        failures.append({"path": "index.json", "reason": "plan binding mismatch"})
+        failures.append(
+            {
+                "path": "index.json",
+                "reason": "plan binding mismatch",
+            }
+        )
+
     return {
         "bundle": str(root),
         "plan_id": manifest.get("plan_id"),
