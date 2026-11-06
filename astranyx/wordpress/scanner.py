@@ -182,7 +182,7 @@ def run(plugin_path, output=None, recursive=True):
 
     report = Report(str(plugin_path), findings)
     out = Path(output) if output else Path("reports") / Path(plugin_path).name
-    render(report, out)
+    render(report, out, source_root=plugin_path)
     export_sarif(report, out)
 
     print()
