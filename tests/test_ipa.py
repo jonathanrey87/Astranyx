@@ -78,7 +78,17 @@ def test_extract_ipa_removes_partial_output_after_corrupt_member(tmp_path, monke
 
 @pytest.mark.parametrize(
     "member_name",
-    ["../outside", "/absolute", "Payload\\outside", "C:/outside", "Payload//x"],
+    [
+        "../outside",
+        "/absolute",
+        "Payload\\outside",
+        "C:/outside",
+        "Payload//x",
+        "D:outside.txt",
+        "Payload/D:/outside.txt",
+        "Payload/C:secret.txt",
+        "Payload/Example.app/D:payload",
+    ],
 )
 def test_extract_ipa_rejects_unsafe_paths(tmp_path, monkeypatch, member_name):
     archive = tmp_path / "unsafe.ipa"

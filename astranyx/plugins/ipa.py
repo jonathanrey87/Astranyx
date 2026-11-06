@@ -105,20 +105,25 @@ def extract_ipa(ipa_path: Path) -> Path:
 
 def _validated_member_destination(member: zipfile.ZipInfo) -> tuple[str, ...]:
     name = member.filename
-    if not name or "\x00" in name or "\\" in name or name.startswith("/"):
+
+    if not name or '\x00' in name or '\\' in name or name.startswith("/"):
         raise ValueError(f"IPA contains an unsafe path: {name!r}")
 
     raw_parts = name.rstrip("/").split("/")
+
     if not raw_parts or any(part in {"", ".", ".."} for part in raw_parts):
         raise ValueError(f"IPA contains an unsafe path: {name!r}")
-    if len(raw_parts[0]) == 2 and raw_parts[0][0].isalpha() and raw_parts[0][1] == ":":
+
+    if any(":" in part for part in raw_parts):
         raise ValueError(f"IPA contains an unsafe path: {name!r}")
 
     path = PurePosixPath(*raw_parts)
     mode = member.external_attr >> 16
     file_type = stat.S_IFMT(mode)
+
     if file_type and not (stat.S_ISREG(mode) or stat.S_ISDIR(mode)):
         raise ValueError(f"IPA contains an unsupported entry type: {name}")
+
     if member.flag_bits & 0x1:
         raise ValueError(f"IPA contains an encrypted entry: {name}")
 
