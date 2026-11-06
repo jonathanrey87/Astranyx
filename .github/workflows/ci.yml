@@ -46,3 +46,30 @@ jobs:
       - name: Tests
         run: |
           pytest -q
+
+  windows-integrity:
+    name: Windows integrity baseline
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Investigation integrity baseline
+        run: >
+          python -m pytest -q
+          tests/test_investigation_integrity.py
+          -k "accepts_intact_investigation or
+          reports_modified_and_missing_artifacts or
+          rejects_unsafe_and_duplicate_paths or
+          returns_verified_manifest"
