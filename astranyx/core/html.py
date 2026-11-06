@@ -256,14 +256,16 @@ def copy_assets(output_dir):
         shutil.copyfile(TEMPLATE_DIR / asset, output_dir / asset)
 
 
-def render(report, output_dir):
+def render(report, output_dir, *, source_root=None):
+    """Render findings; enable previews only with an explicitly trusted source root."""
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     findings = sorted(report.findings, key=lambda f: (-f.confidence, f.file, f.line))
-    source_root = Path(report.target)
-    if not source_root.is_dir():
-        source_root = None
+    if source_root is not None:
+        source_root = Path(source_root).expanduser().resolve()
+        if not source_root.is_dir():
+            source_root = None
     summary = report.summary()
     attack_surface = build_attack_surface(findings)
 
