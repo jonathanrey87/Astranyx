@@ -370,3 +370,98 @@ def test_windows_rejects_artifact_swapped_after_validation(tmp_path, monkeypatch
     assert result["valid"] is False
     assert result["artifacts_checked"] == 0
     assert result["failures"][0]["reason"].startswith("unreadable:")
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-specific regression")
+def test_windows_rejects_artifact_swapped_after_validation(tmp_path, monkeypatch):
+    artifact = tmp_path / "artifact.txt"
+    artifact.write_bytes(b"expected")
+
+    outside = tmp_path.parent / (tmp_path.name + "-outside-artifact.txt")
+    outside.write_bytes(b"expected")
+
+    write_manifest(tmp_path, [record(artifact, tmp_path)])
+
+    real_safe_artifact = integrity._safe_artifact
+    swapped = False
+
+    def swap_after_validation(root, value):
+        nonlocal swapped
+        result = real_safe_artifact(root, value)
+
+        if result == artifact and not swapped:
+            try:
+                artifact.unlink()
+                artifact.symlink_to(outside)
+            except (OSError, NotImplementedError) as exc:
+                pytest.skip(f"Windows symlink unavailable: {exc}")
+            swapped = True
+
+        return result
+
+    monkeypatch.setattr(integrity, "_safe_artifact", swap_after_validation)
+
+    try:
+        result = integrity.verify(tmp_path)
+    finally:
+        artifact.unlink(missing_ok=True)
+        outside.unlink(missing_ok=True)
+
+    assert swapped
+    assert result["valid"] is False
+    assert result["artifacts_checked"] == 0
+    assert result["failures"][0]["reason"].startswith("unreadable:")
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-specific regression")
+@pytest.mark.xfail(
+    os.name == "nt",
+    reason="Windows intermediate-directory protection not implemented",
+    strict=True,
+)
+def test_windows_rejects_intermediate_directory_swap(tmp_path, monkeypatch):
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    artifact = reports / "artifact.txt"
+    artifact.write_bytes(b"expected")
+
+    outside = tmp_path.parent / (tmp_path.name + "-outside-reports")
+    outside.mkdir()
+    (outside / "artifact.txt").write_bytes(b"expected")
+
+    write_manifest(tmp_path, [record(artifact, tmp_path)])
+
+    moved = tmp_path / "reports-original"
+    real_safe_artifact = integrity._safe_artifact
+    swapped = False
+
+    def swap_after_validation(root, value):
+        nonlocal swapped
+        result = real_safe_artifact(root, value)
+
+        if result == artifact and not swapped:
+            reports.rename(moved)
+            try:
+                reports.symlink_to(outside, target_is_directory=True)
+            except (OSError, NotImplementedError) as exc:
+                moved.rename(reports)
+                pytest.skip(f"Windows directory symlink unavailable: {exc}")
+            swapped = True
+
+        return result
+
+    monkeypatch.setattr(integrity, "_safe_artifact", swap_after_validation)
+
+    try:
+        result = integrity.verify(tmp_path)
+    finally:
+        if reports.is_symlink():
+            reports.unlink()
+        if moved.exists():
+            moved.rename(reports)
+        (outside / "artifact.txt").unlink(missing_ok=True)
+        outside.rmdir()
+
+    assert swapped
+    assert result["valid"] is False
+    assert result["artifacts_checked"] == 0
