@@ -13,8 +13,8 @@ class SourceReadError(ValueError):
     """Source path is unsafe, unsupported, or too large."""
 
 
-def read_source_text(root: Path, path: Path, limit: int = MAX_SOURCE_BYTES) -> str:
-    """Read one regular source file without escaping its resolved root."""
+def read_source_bytes(root: Path, path: Path, limit: int = MAX_SOURCE_BYTES) -> bytes:
+    """Read raw source bytes once, bounded and confined to the analysis root."""
     resolved_root = root.expanduser().resolve()
     absolute_path = path.expanduser().absolute()
     try:
@@ -27,4 +27,9 @@ def read_source_text(root: Path, path: Path, limit: int = MAX_SOURCE_BYTES) -> s
     except (OSError, SafeReadError) as exc:
         raise SourceReadError(f"unsafe source path: {relative}") from exc
 
-    return data.decode("utf-8", errors="ignore")
+    return data
+
+
+def read_source_text(root: Path, path: Path, limit: int = MAX_SOURCE_BYTES) -> str:
+    """Read and decode one confined source snapshot."""
+    return read_source_bytes(root, path, limit).decode("utf-8", errors="ignore")
