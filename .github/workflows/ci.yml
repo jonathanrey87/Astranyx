@@ -67,7 +67,7 @@ jobs:
 
       - name: Investigation integrity baseline
         run: >
-          python -m pytest -q
+          python -m pytest -q -rx
           tests/test_investigation_integrity.py
           -k "accepts_intact_investigation or
           reports_modified_and_missing_artifacts or
