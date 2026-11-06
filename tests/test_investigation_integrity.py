@@ -329,3 +329,44 @@ def test_windows_rejects_symlinked_manifest(tmp_path):
     finally:
         manifest.unlink(missing_ok=True)
         outside.unlink(missing_ok=True)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-specific regression")
+def test_windows_rejects_artifact_swapped_after_validation(tmp_path, monkeypatch):
+    artifact = tmp_path / "artifact.txt"
+    artifact.write_bytes(b"expected")
+
+    outside = tmp_path.parent / (tmp_path.name + "-outside-artifact.txt")
+    outside.write_bytes(b"expected")
+
+    write_manifest(tmp_path, [record(artifact, tmp_path)])
+
+    real_safe_artifact = integrity._safe_artifact
+    swapped = False
+
+    def swap_after_validation(root, value):
+        nonlocal swapped
+        result = real_safe_artifact(root, value)
+
+        if result == artifact and not swapped:
+            try:
+                artifact.unlink()
+                artifact.symlink_to(outside)
+            except (OSError, NotImplementedError) as exc:
+                pytest.skip(f"Windows symlink unavailable: {exc}")
+            swapped = True
+
+        return result
+
+    monkeypatch.setattr(integrity, "_safe_artifact", swap_after_validation)
+
+    try:
+        result = integrity.verify(tmp_path)
+    finally:
+        artifact.unlink(missing_ok=True)
+        outside.unlink(missing_ok=True)
+
+    assert swapped
+    assert result["valid"] is False
+    assert result["artifacts_checked"] == 0
+    assert result["failures"][0]["reason"].startswith("unreadable:")

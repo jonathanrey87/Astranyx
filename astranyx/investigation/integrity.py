@@ -65,9 +65,13 @@ def _safe_artifact(root: Path, value: Any) -> Path | None:
 
 def _read_artifact_nofollow(root: Path, relative: Path) -> bytes:
     """Read through directory handles, never following symlinks on POSIX."""
+    if os.name == "nt":
+        from astranyx.investigation.windows_reader import read_regular_windows
+
+        return read_regular_windows(root / relative)
+
     if os.name != "posix":
-        # Windows does not support this POSIX dir_fd/O_NOFOLLOW strategy.
-        return (root / relative).read_bytes()
+        raise OSError("unsupported filesystem platform")
 
     # O_PATH avoids requiring directory-listing permission on Linux.
     directory_flags = (
