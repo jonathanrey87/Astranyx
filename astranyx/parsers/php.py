@@ -131,8 +131,9 @@ def parse_file(path: Path, *, root: Path | None = None) -> IRModule:
     """Extract only explicit functions, assignments, calls, and returns."""
     if root:
         resolved_root = root.resolve()
-        module_path = str(path.relative_to(resolved_root))
-        lines = read_source_text(resolved_root, path).splitlines()
+        absolute_path = path.expanduser().absolute()
+        module_path = str(absolute_path.relative_to(resolved_root))
+        lines = read_source_text(resolved_root, absolute_path).splitlines()
     else:
         resolved = path.resolve()
         module_path = str(resolved)
