@@ -264,3 +264,49 @@ def test_verify_returns_verified_manifest(tmp_path):
     assert result["valid"] is True
     assert result["verified_manifest"]["investigation"]["id"] == "INV-TEST"
     assert result["verified_manifest"]["artifacts"][0]["path"] == "evidence.txt"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="requires POSIX O_NOFOLLOW")
+def test_verify_rejects_symlink_manifest(tmp_path):
+    outside = tmp_path.parent / (tmp_path.name + "-manifest.json")
+    outside.write_text(json.dumps({"artifacts": []}))
+    (tmp_path / "manifest.json").symlink_to(outside)
+    try:
+        with pytest.raises(integrity.IntegrityError, match="unable to read"):
+            integrity.verify(tmp_path)
+    finally:
+        outside.unlink(missing_ok=True)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="requires POSIX O_NOFOLLOW")
+def test_verify_rejects_manifest_symlink_swapped_before_open(tmp_path, monkeypatch):
+    write_manifest(tmp_path, [])
+    manifest = tmp_path / "manifest.json"
+    outside = tmp_path.parent / (tmp_path.name + "-manifest-swapped.json")
+    outside.write_text(json.dumps({"artifacts": []}))
+    real_open = integrity.os.open
+    swapped = False
+
+    def swap_then_open(path, flags, *args, **kwargs):
+        nonlocal swapped
+        if Path(path) == manifest and not swapped:
+            swapped = True
+            manifest.unlink()
+            manifest.symlink_to(outside)
+        return real_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(integrity.os, "open", swap_then_open)
+    try:
+        with pytest.raises(integrity.IntegrityError, match="unable to read"):
+            integrity.verify(tmp_path)
+    finally:
+        outside.unlink(missing_ok=True)
+
+    assert swapped
+
+
+@pytest.mark.skipif(os.name != "posix", reason="requires POSIX O_NOFOLLOW")
+def test_verify_rejects_non_regular_manifest(tmp_path):
+    (tmp_path / "manifest.json").mkdir()
+    with pytest.raises(integrity.IntegrityError, match="not a regular file"):
+        integrity.verify(tmp_path)
