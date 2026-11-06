@@ -3,8 +3,8 @@ from pathlib import Path
 from astranyx.core.preview import source_preview
 from astranyx.modules.js import analyze
 from astranyx.parsers.php import parse_file
-from astranyx.wordpress.authorization import extract_rest_access_paths
 from astranyx.wordpress import scanner
+from astranyx.wordpress.authorization import extract_rest_access_paths
 
 SENTINEL = "ASTRANYX_OUTSIDE_SOURCE_SENTINEL"
 
