@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 from astranyx.models.ir import IRCall, IRFunction, IRModule, IRVariable, SourceLocation
+from astranyx.source import read_source_text
 from astranyx.wordpress.taint import SOURCES
 
 FUNCTION = re.compile(r"\bfunction\s+([A-Za-z_]\w*)\s*\(([^)]*)\)")
@@ -128,9 +129,15 @@ def _parse_function(
 
 def parse_file(path: Path, *, root: Path | None = None) -> IRModule:
     """Extract only explicit functions, assignments, calls, and returns."""
-    resolved = path.resolve()
-    module_path = str(resolved.relative_to(root.resolve())) if root else str(resolved)
-    lines = resolved.read_text(encoding="utf-8", errors="ignore").splitlines()
+    if root:
+        resolved_root = root.resolve()
+        absolute_path = path.expanduser().absolute()
+        module_path = str(absolute_path.relative_to(resolved_root))
+        lines = read_source_text(resolved_root, absolute_path).splitlines()
+    else:
+        resolved = path.resolve()
+        module_path = str(resolved)
+        lines = resolved.read_text(encoding="utf-8", errors="ignore").splitlines()
     module = IRModule(path=module_path, language="php")
     for name, parameters, start, end in _function_ranges(lines):
         module.functions.append(

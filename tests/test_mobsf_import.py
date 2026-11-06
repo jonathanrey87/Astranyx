@@ -245,3 +245,25 @@ def test_android_binary_findings_drop_positive_checks_and_deduplicate_paths(tmp_
     assert len(findings) == 1
     assert findings[0].rule_id == "binary_nx"
     assert findings[0].file == "lib/arm64-v8a/libdemo.so"
+
+
+def test_import_report_does_not_preview_files_from_untrusted_target(tmp_path):
+    """Imported package names must never become filesystem source roots."""
+    private = tmp_path / "private"
+    private.mkdir()
+    sentinel = "PRIVATE_SOURCE_PREVIEW_SENTINEL"
+    (private / "secret.php").write_text(sentinel, encoding="utf-8")
+    payload = sample_report()
+    payload["package_name"] = str(private)
+    payload["code_analysis"]["android_insecure_random"]["files"] = {
+        "secret.php": {"lines": "1", "match_string": "untrusted report snippet"}
+    }
+    source = tmp_path / "malicious-mobsf.json"
+    source.write_text(json.dumps(payload), encoding="utf-8")
+    output = tmp_path / "imported-report"
+
+    mobsf.import_report(source, output)
+
+    html = (output / "index.html").read_text(encoding="utf-8")
+    assert sentinel not in html
+    assert "No source preview available." in html

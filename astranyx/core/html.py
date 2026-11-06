@@ -58,8 +58,14 @@ def load_template(name):
     return (TEMPLATE_DIR / name).read_text(encoding="utf-8")
 
 
-def render_source_preview(finding):
-    preview = source_preview(getattr(finding, "full_path", ""), finding.line, radius=5)
+def render_source_preview(finding, source_root=None):
+    preview = source_preview(
+        getattr(finding, "full_path", ""),
+        finding.line,
+        radius=5,
+        root=source_root,
+        relative=finding.file if source_root else None,
+    )
 
     if not preview:
         return "<em>No source preview available.</em>"
@@ -124,7 +130,7 @@ def executive_summary(findings):
     )
 
 
-def render_finding_rows(findings):
+def render_finding_rows(findings, source_root=None):
     rows = ""
 
     for i, finding in enumerate(findings):
@@ -135,7 +141,7 @@ def render_finding_rows(findings):
             if finding.cvss_score is not None
             else "Not assessed"
         )
-        preview_html = render_source_preview(finding)
+        preview_html = render_source_preview(finding, source_root=source_root)
 
         rows += f"""
 <tr class="finding-row {band}" data-band="{band}" data-category="{html.escape(finding.category)}">
@@ -250,11 +256,16 @@ def copy_assets(output_dir):
         shutil.copyfile(TEMPLATE_DIR / asset, output_dir / asset)
 
 
-def render(report, output_dir):
+def render(report, output_dir, *, source_root=None):
+    """Render findings; enable previews only with an explicitly trusted source root."""
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     findings = sorted(report.findings, key=lambda f: (-f.confidence, f.file, f.line))
+    if source_root is not None:
+        source_root = Path(source_root).expanduser().resolve()
+        if not source_root.is_dir():
+            source_root = None
     summary = report.summary()
     attack_surface = build_attack_surface(findings)
 
@@ -298,7 +309,7 @@ def render(report, output_dir):
         "{{LOW_SEVERITY}}": str(severity_counts["low"]),
         "{{INFO_SEVERITY}}": str(severity_counts["info"]),
         "{{SURFACE_ROWS}}": render_surface_rows(attack_surface),
-        "{{FINDING_ROWS}}": render_finding_rows(findings),
+        "{{FINDING_ROWS}}": render_finding_rows(findings, source_root=source_root),
         "{{CATEGORY_LABELS}}": json.dumps(category_labels),
         "{{CATEGORY_VALUES}}": json.dumps(category_values),
         "{{CATEGORY_COUNT}}": str(len(category_labels)),

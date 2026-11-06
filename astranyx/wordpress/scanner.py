@@ -7,6 +7,7 @@ from astranyx.core.html import render
 from astranyx.core.report import Report
 from astranyx.core.sarif import export as export_sarif
 from astranyx.parsers.php import parse_file as parse_php
+from astranyx.source import SourceReadError, read_source_text
 from astranyx.wordpress.analyzer import analyze_finding
 from astranyx.wordpress.authorization import analyze_plugin_authorization
 from astranyx.wordpress.rules.registry import get_rules_for_file
@@ -39,8 +40,8 @@ def scan_file(path: Path, root: Path):
     findings = []
 
     try:
-        lines = path.read_text(errors="ignore").splitlines()
-    except OSError:
+        lines = read_source_text(root, path).splitlines()
+    except SourceReadError:
         return findings
 
     rules = get_rules_for_file(path)
@@ -113,7 +114,7 @@ def scan_plugin(plugin_path, recursive=True):
     for file in php_files:
         try:
             modules.append(parse_php(file, root=root))
-        except OSError:
+        except (OSError, SourceReadError):
             continue
     for flow in CrossFileTaintEngine().analyze(modules):
         if not flow.cross_file:
@@ -181,7 +182,7 @@ def run(plugin_path, output=None, recursive=True):
 
     report = Report(str(plugin_path), findings)
     out = Path(output) if output else Path("reports") / Path(plugin_path).name
-    render(report, out)
+    render(report, out, source_root=plugin_path)
     export_sarif(report, out)
 
     print()

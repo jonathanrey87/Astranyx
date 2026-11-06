@@ -13,6 +13,7 @@ from astranyx.analysis.authorization import (
     AuthorizationDifferentialAnalyzer,
     AuthorizationPolicy,
 )
+from astranyx.source import SourceReadError, read_source_text
 
 REGISTER = re.compile(r"\bregister_rest_route\s*\(")
 FUNCTION = re.compile(r"\bfunction\s+([A-Za-z_]\w*)\s*\([^)]*\)")
@@ -278,9 +279,20 @@ def extract_rest_access_paths(
     path: Path, *, root: Path | None = None
 ) -> list[AccessPath]:
     """Extract registered REST paths and controls proven inside their callbacks."""
-    resolved = path.resolve()
-    file_name = str(resolved.relative_to(root.resolve())) if root else str(resolved)
-    text = resolved.read_text(encoding="utf-8", errors="ignore")
+    if root:
+        resolved_root = root.resolve()
+        absolute_path = path.expanduser().absolute()
+        file_name = str(absolute_path.relative_to(resolved_root))
+        text = read_source_text(resolved_root, absolute_path)
+    else:
+        resolved = path.resolve()
+        file_name = str(resolved)
+        text = resolved.read_text(encoding="utf-8", errors="ignore")
+    return _extract_rest_access_paths_text(text, file_name)
+
+
+def _extract_rest_access_paths_text(text: str, file_name: str) -> list[AccessPath]:
+    """Extract REST paths from one already-confined source snapshot."""
     bodies = _function_bodies(text)
     paths: list[AccessPath] = []
     for index, match in enumerate(REGISTER.finditer(text), start=1):
@@ -336,7 +348,10 @@ def extract_plugin_access_paths(
     for path in sorted(files):
         if any(part in {"vendor", "node_modules", ".git"} for part in path.parts):
             continue
-        paths.extend(extract_rest_access_paths(path, root=resolved))
+        try:
+            paths.extend(extract_rest_access_paths(path, root=resolved))
+        except SourceReadError:
+            continue
     return paths
 
 
@@ -352,9 +367,12 @@ def analyze_plugin_authorization(
         if any(part in {"vendor", "node_modules", ".git"} for part in path.parts):
             continue
         file_name = str(path.relative_to(resolved))
-        text = path.read_text(encoding="utf-8", errors="ignore")
+        try:
+            text = read_source_text(resolved, path)
+        except SourceReadError:
+            continue
         files.append((file_name, text))
-        paths.extend(extract_rest_access_paths(path, root=resolved))
+        paths.extend(_extract_rest_access_paths_text(text, file_name))
     policies = _infer_policies(files)
     differentials = AuthorizationDifferentialAnalyzer().analyze(paths, policies)
     return WordPressAuthorizationInventory(
