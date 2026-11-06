@@ -1,3 +1,4 @@
+from astranyx.core.preview import source_preview
 from astranyx.modules.js import analyze
 from astranyx.wordpress import scanner
 
@@ -99,3 +100,38 @@ def test_ordinary_source_files_remain_analyzable(tmp_path):
     }
     assert javascript["files_analyzed"] == 1
     assert javascript["source_files"][0]["path"] == "app.js"
+
+
+def test_source_preview_requires_explicit_analysis_root(tmp_path):
+    outside = tmp_path / "outside.txt"
+    outside.write_text("PRIVATE_OUTSIDE_SOURCE", encoding="utf-8")
+
+    assert source_preview(outside, 1) == []
+    assert source_preview(outside, 1, root=tmp_path, relative=None) == []
+
+
+def test_source_preview_rejects_symlink_within_root(tmp_path):
+    source_root = tmp_path / "source"
+    source_root.mkdir()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("PRIVATE_OUTSIDE_SOURCE", encoding="utf-8")
+    (source_root / "linked.txt").symlink_to(outside)
+
+    assert (
+        source_preview(
+            source_root / "linked.txt",
+            1,
+            root=source_root,
+            relative="linked.txt",
+        )
+        == []
+    )
+
+
+def test_source_preview_reads_regular_file_inside_root(tmp_path):
+    source = tmp_path / "regular.txt"
+    source.write_text("first\\nsecond\\nthird\\n", encoding="utf-8")
+
+    assert source_preview(source, 2, radius=0, root=tmp_path, relative="regular.txt") == [
+        (2, "second")
+    ]
