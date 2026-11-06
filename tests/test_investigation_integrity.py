@@ -373,11 +373,6 @@ def test_windows_rejects_artifact_swapped_after_validation(tmp_path, monkeypatch
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-specific regression")
-@pytest.mark.xfail(
-    os.name == "nt",
-    reason="Windows intermediate-directory protection not implemented",
-    strict=True,
-)
 def test_windows_rejects_intermediate_directory_swap(tmp_path, monkeypatch):
     reports = tmp_path / "reports"
     reports.mkdir()

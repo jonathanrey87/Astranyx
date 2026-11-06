@@ -68,7 +68,7 @@ def _read_artifact_nofollow(root: Path, relative: Path) -> bytes:
     if os.name == "nt":
         from astranyx.investigation.windows_reader import read_regular_windows
 
-        return read_regular_windows(root / relative)
+        return read_regular_windows(root / relative, root=root)
 
     if os.name != "posix":
         raise OSError("unsupported filesystem platform")

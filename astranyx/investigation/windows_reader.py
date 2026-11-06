@@ -1,4 +1,4 @@
-"""Windows regular-file reading with final-component reparse-point rejection."""
+"""Windows file reads with reparse-point checks and pinned directories."""
 
 from __future__ import annotations
 
@@ -30,12 +30,23 @@ class _FileInformation(ctypes.Structure):
     ]
 
 
-def read_regular_windows(path: Path) -> bytes:
-    """Read an opened regular file without following its final reparse point."""
+def read_regular_windows(path: Path, *, root: Path | None = None) -> bytes:
+    """Read a file while holding checked directory handles open."""
     if os.name != "nt":
         raise OSError("Windows file handles are required")
 
     import msvcrt
+
+    path = Path(path).absolute()
+    root = Path(root).absolute() if root is not None else path.parent
+
+    try:
+        relative = path.relative_to(root)
+    except ValueError as exc:
+        raise OSError("file is outside the trusted root") from exc
+
+    if not relative.parts or any(part in {"", ".", ".."} for part in relative.parts):
+        raise OSError("invalid relative file path")
 
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 
@@ -62,31 +73,88 @@ def read_regular_windows(path: Path) -> bytes:
     close_handle.argtypes = [wintypes.HANDLE]
     close_handle.restype = wintypes.BOOL
 
-    handle = create_file(
-        str(path),
-        0x80000000,  # GENERIC_READ
-        0x00000007,  # Share read, write, delete
-        None,
-        3,  # OPEN_EXISTING
-        0x00200000 | 0x02000000,  # OPEN_REPARSE_POINT | BACKUP_SEMANTICS
-        None,
-    )
+    OPEN_EXISTING = 3
+    FILE_READ_ATTRIBUTES = 0x00000080
+    GENERIC_READ = 0x80000000
+    FILE_SHARE_READ_WRITE = 0x00000003
+    FILE_SHARE_ALL = 0x00000007
+    FILE_FLAG_OPEN_REPARSE_POINT = 0x00200000
+    FILE_FLAG_BACKUP_SEMANTICS = 0x02000000
+    FILE_ATTRIBUTE_DIRECTORY = 0x00000010
+    FILE_ATTRIBUTE_REPARSE_POINT = 0x00000400
 
-    if handle == ctypes.c_void_p(-1).value:
-        raise ctypes.WinError(ctypes.get_last_error())
+    flags = FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS
+    invalid_handle = ctypes.c_void_p(-1).value
 
-    try:
-        info = _FileInformation()
-        if not get_info(handle, ctypes.byref(info)):
+    def open_checked(target: Path, access: int, share: int) -> tuple[int, int]:
+        handle = create_file(
+            str(target),
+            access,
+            share,
+            None,
+            OPEN_EXISTING,
+            flags,
+            None,
+        )
+        if handle == invalid_handle:
             raise ctypes.WinError(ctypes.get_last_error())
 
-        if info.attributes & (0x00000400 | 0x00000010):
-            raise OSError("reparse point or directory is not permitted")
+        try:
+            info = _FileInformation()
+            if not get_info(handle, ctypes.byref(info)):
+                raise ctypes.WinError(ctypes.get_last_error())
+            return handle, info.attributes
+        except BaseException:
+            close_handle(handle)
+            raise
 
-        fd = msvcrt.open_osfhandle(handle, os.O_RDONLY | os.O_BINARY)
-        handle = None  # Ownership transferred to the Python descriptor.
-        with os.fdopen(fd, "rb") as stream:
-            return stream.read()
+    directories = [root]
+    current = root
+
+    for component in relative.parts[:-1]:
+        current = current / component
+        directories.append(current)
+
+    held_handles = []
+
+    try:
+        for directory in directories:
+            handle, attributes = open_checked(
+                directory,
+                FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ_WRITE,
+            )
+            held_handles.append(handle)
+
+            if attributes & FILE_ATTRIBUTE_REPARSE_POINT:
+                raise OSError("directory reparse point is not permitted")
+
+            if not attributes & FILE_ATTRIBUTE_DIRECTORY:
+                raise OSError("intermediate path is not a directory")
+
+        file_handle, attributes = open_checked(
+            path,
+            GENERIC_READ,
+            FILE_SHARE_ALL,
+        )
+
+        try:
+            if attributes & (FILE_ATTRIBUTE_REPARSE_POINT | FILE_ATTRIBUTE_DIRECTORY):
+                raise OSError("reparse point or directory is not permitted")
+
+            fd = msvcrt.open_osfhandle(
+                file_handle,
+                os.O_RDONLY | os.O_BINARY,
+            )
+            file_handle = None
+
+            with os.fdopen(fd, "rb") as stream:
+                return stream.read()
+
+        finally:
+            if file_handle is not None:
+                close_handle(file_handle)
+
     finally:
-        if handle is not None:
+        for handle in reversed(held_handles):
             close_handle(handle)
