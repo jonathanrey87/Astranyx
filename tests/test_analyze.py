@@ -119,7 +119,7 @@ def test_analyze_skips_unreadable_files(
         encoding="utf-8",
     )
 
-    original_read_source = js.read_source_text
+    original_read_source = js.read_source_bytes
 
     def controlled_read_source(root, path, *args, **kwargs):
         if path == broken_file:
@@ -134,7 +134,7 @@ def test_analyze_skips_unreadable_files(
 
     monkeypatch.setattr(
         js,
-        "read_source_text",
+        "read_source_bytes",
         controlled_read_source,
     )
 
@@ -180,3 +180,18 @@ def test_analyze_extracts_api_methods_without_ui_route_confusion(tmp_path):
         (endpoint["method"], endpoint["path"]) for endpoint in report["api_endpoints"]
     ] == [("POST", "/public/admin/recover")]
     assert report["report_guidance"].startswith("Signals are review candidates")
+
+
+def test_analyze_source_metadata_uses_original_bytes(tmp_path):
+    """Ignored invalid UTF-8 must not alter the source digest or byte count."""
+    import hashlib
+
+    original = b'fetch("/binary");\xff\xfe'
+    (tmp_path / "binary.js").write_bytes(original)
+
+    report = analyze(tmp_path)
+
+    source = report["source_files"][0]
+    assert source["size_bytes"] == len(original)
+    assert source["sha256"] == hashlib.sha256(original).hexdigest()
+    assert report["routes"] == ["/binary"]
