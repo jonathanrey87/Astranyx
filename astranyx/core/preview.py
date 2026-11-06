@@ -8,14 +8,13 @@ def source_preview(file_path, line_number, radius=5, *, root=None, relative=None
     Return a list of (line_number, text) tuples around the requested line.
     """
 
+    # A caller-supplied root is required to establish a trusted boundary.
+    # Do not fall back to reading a potentially untrusted full_path.
+    if root is None or relative is None:
+        return []
+
     try:
-        if root is not None and relative is not None:
-            lines = read_source_text(Path(root), Path(root) / relative).splitlines()
-        else:
-            path = Path(file_path)
-            if not path.exists():
-                return []
-            lines = path.read_text(errors="ignore").splitlines()
+        lines = read_source_text(Path(root), Path(root) / relative).splitlines()
     except (OSError, SourceReadError):
         return []
 
