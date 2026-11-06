@@ -106,7 +106,7 @@ def extract_ipa(ipa_path: Path) -> Path:
 def _validated_member_destination(member: zipfile.ZipInfo) -> tuple[str, ...]:
     name = member.filename
 
-    if not name or '\x00' in name or '\\' in name or name.startswith("/"):
+    if not name or "\x00" in name or "\\" in name or name.startswith("/"):
         raise ValueError(f"IPA contains an unsafe path: {name!r}")
 
     raw_parts = name.rstrip("/").split("/")
