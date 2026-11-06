@@ -5,7 +5,7 @@ from pathlib import Path
 from time import perf_counter
 
 from astranyx.investigation.manager import InvestigationManager
-from astranyx.source import SourceReadError, read_source_text
+from astranyx.source import SourceReadError, read_source_bytes
 from astranyx.telemetry import Status, StatusCode, trace
 
 tracer = trace.get_tracer("astranyx.modules.js")
@@ -200,15 +200,16 @@ def _extract_api_endpoints(text, report_path):
 
 def _scan_javascript_file(base, file_path, report_path):
     """Read and scan one JavaScript file."""
-    text = read_source_text(base, file_path)
+    source_bytes = read_source_bytes(base, file_path)
+    text = source_bytes.decode("utf-8", errors="ignore")
 
     findings = _extract_findings(text)
     routes = ROUTE_PATTERN.findall(text)
     signals = _extract_signals(text, report_path)
     endpoints = _extract_api_endpoints(text, report_path)
-    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    digest = hashlib.sha256(source_bytes).hexdigest()
 
-    return text, findings, routes, signals, endpoints, digest
+    return text, findings, routes, signals, endpoints, len(source_bytes), digest
 
 
 def _scan_javascript_files(js_files, base):
@@ -241,6 +242,7 @@ def _scan_javascript_files(js_files, base):
                         file_routes,
                         file_signals,
                         file_endpoints,
+                        source_size,
                         digest,
                     ) = _scan_javascript_file(base, file_path, report_path)
                 except (OSError, SourceReadError) as exc:
@@ -283,7 +285,7 @@ def _scan_javascript_files(js_files, base):
                 source_files.append(
                     {
                         "path": report_path,
-                        "size_bytes": len(text.encode("utf-8")),
+                        "size_bytes": source_size,
                         "sha256": digest,
                     }
                 )
