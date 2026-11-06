@@ -1,5 +1,9 @@
+from pathlib import Path
+
 from astranyx.core.preview import source_preview
 from astranyx.modules.js import analyze
+from astranyx.parsers.php import parse_file
+from astranyx.wordpress.authorization import extract_rest_access_paths
 from astranyx.wordpress import scanner
 
 SENTINEL = "ASTRANYX_OUTSIDE_SOURCE_SENTINEL"
@@ -134,3 +138,27 @@ def test_source_preview_reads_regular_file_inside_root(tmp_path):
 
     preview = source_preview(source, 2, radius=0, root=tmp_path, relative="regular.txt")
     assert preview == [(2, "second")]
+
+def test_php_entry_points_accept_relative_paths_with_root(tmp_path, monkeypatch):
+    plugin = tmp_path / "plugin"
+    plugin.mkdir()
+    php = plugin / "controller.php"
+    php.write_text(
+        "<?php\\n"
+        "function handle() { return \\$value; }\\n"
+        "register_rest_route('demo/v1', '/items', "
+        "['methods' => 'GET', 'callback' => 'handle', "
+        "'permission_callback' => '__return_true']);\\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    relative_path = Path("plugin/controller.php")
+    relative_root = Path("plugin")
+
+    parsed = parse_file(relative_path, root=relative_root)
+    access_paths = extract_rest_access_paths(relative_path, root=relative_root)
+
+    assert parsed.path == "controller.php"
+    assert any(function.name == "handle" for function in parsed.functions)
+    assert len(access_paths) == 1
+    assert access_paths[0].file == "controller.php"
