@@ -5,6 +5,7 @@ from pathlib import Path
 from time import perf_counter
 
 from astranyx.investigation.manager import InvestigationManager
+from astranyx.source import SourceReadError, read_source_text
 from astranyx.telemetry import Status, StatusCode, trace
 
 tracer = trace.get_tracer("astranyx.modules.js")
@@ -197,12 +198,9 @@ def _extract_api_endpoints(text, report_path):
     return list(endpoints.values())
 
 
-def _scan_javascript_file(file_path, report_path):
+def _scan_javascript_file(base, file_path, report_path):
     """Read and scan one JavaScript file."""
-    text = file_path.read_text(
-        encoding="utf-8",
-        errors="ignore",
-    )
+    text = read_source_text(base, file_path)
 
     findings = _extract_findings(text)
     routes = ROUTE_PATTERN.findall(text)
@@ -244,8 +242,8 @@ def _scan_javascript_files(js_files, base):
                         file_signals,
                         file_endpoints,
                         digest,
-                    ) = _scan_javascript_file(file_path, report_path)
-                except OSError as exc:
+                    ) = _scan_javascript_file(base, file_path, report_path)
+                except (OSError, SourceReadError) as exc:
                     failed_files += 1
 
                     file_span.record_exception(exc)
@@ -285,7 +283,7 @@ def _scan_javascript_files(js_files, base):
                 source_files.append(
                     {
                         "path": report_path,
-                        "size_bytes": file_path.stat().st_size,
+                        "size_bytes": len(text.encode("utf-8")),
                         "sha256": digest,
                     }
                 )
@@ -514,7 +512,7 @@ def analyze(path, output=None, investigation=None, recursive=False):
     started = perf_counter()
 
     with tracer.start_as_current_span("astranyx.js.analyze") as span:
-        base = Path(path).expanduser()
+        base = Path(path).expanduser().resolve()
 
         span.set_attribute(
             "astranyx.module",

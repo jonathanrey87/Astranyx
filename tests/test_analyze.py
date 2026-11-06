@@ -1,9 +1,10 @@
 import json
-from pathlib import Path
 
 import pytest
 
+from astranyx.modules import js
 from astranyx.modules.js import analyze
+from astranyx.source import SourceReadError
 
 
 def test_analyze_javascript_patterns_and_routes(
@@ -118,22 +119,23 @@ def test_analyze_skips_unreadable_files(
         encoding="utf-8",
     )
 
-    original_read_text = Path.read_text
+    original_read_source = js.read_source_text
 
-    def controlled_read_text(path, *args, **kwargs):
+    def controlled_read_source(root, path, *args, **kwargs):
         if path == broken_file:
-            raise OSError("simulated read failure")
+            raise SourceReadError("simulated read failure")
 
-        return original_read_text(
+        return original_read_source(
+            root,
             path,
             *args,
             **kwargs,
         )
 
     monkeypatch.setattr(
-        Path,
-        "read_text",
-        controlled_read_text,
+        js,
+        "read_source_text",
+        controlled_read_source,
     )
 
     report = analyze(tmp_path)
