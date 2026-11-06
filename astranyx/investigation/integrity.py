@@ -26,8 +26,12 @@ def _load_manifest(path: Path) -> dict[str, Any]:
                     payload = json.load(stream)
             finally:
                 os.close(fd)
+        elif os.name == "nt":
+            from astranyx.investigation.windows_reader import read_regular_windows
+
+            payload = json.loads(read_regular_windows(path).decode("utf-8"))
         else:
-            payload = json.loads(path.read_text(encoding="utf-8"))
+            raise OSError("unsupported filesystem platform")
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise IntegrityError(f"unable to read investigation manifest: {exc}") from exc
     if not isinstance(payload, dict) or not isinstance(payload.get("artifacts"), list):

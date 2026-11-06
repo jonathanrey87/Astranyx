@@ -313,11 +313,6 @@ def test_verify_rejects_non_regular_manifest(tmp_path):
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-specific security regression")
-@pytest.mark.xfail(
-    os.name == "nt",
-    reason="Windows manifest no-follow protection not yet implemented",
-    strict=True,
-)
 def test_windows_rejects_symlinked_manifest(tmp_path):
     outside = tmp_path.parent / (tmp_path.name + "-outside-manifest.json")
     outside.write_text(json.dumps({"artifacts": []}))
