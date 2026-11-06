@@ -310,3 +310,27 @@ def test_verify_rejects_non_regular_manifest(tmp_path):
     (tmp_path / "manifest.json").mkdir()
     with pytest.raises(integrity.IntegrityError, match="not a regular file"):
         integrity.verify(tmp_path)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-specific security regression")
+@pytest.mark.xfail(
+    os.name == "nt",
+    reason="Windows manifest no-follow protection not yet implemented",
+    strict=True,
+)
+def test_windows_rejects_symlinked_manifest(tmp_path):
+    outside = tmp_path.parent / (tmp_path.name + "-outside-manifest.json")
+    outside.write_text(json.dumps({"artifacts": []}))
+
+    manifest = tmp_path / "manifest.json"
+    try:
+        try:
+            manifest.symlink_to(outside)
+        except (OSError, NotImplementedError) as exc:
+            pytest.skip(f"Windows symlink creation unavailable: {exc}")
+
+        with pytest.raises(integrity.IntegrityError):
+            integrity.verify(tmp_path)
+    finally:
+        manifest.unlink(missing_ok=True)
+        outside.unlink(missing_ok=True)
