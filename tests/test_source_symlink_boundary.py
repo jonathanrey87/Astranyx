@@ -139,16 +139,17 @@ def test_source_preview_reads_regular_file_inside_root(tmp_path):
     preview = source_preview(source, 2, radius=0, root=tmp_path, relative="regular.txt")
     assert preview == [(2, "second")]
 
+
 def test_php_entry_points_accept_relative_paths_with_root(tmp_path, monkeypatch):
     plugin = tmp_path / "plugin"
     plugin.mkdir()
     php = plugin / "controller.php"
     php.write_text(
-        "<?php\\n"
-        "function handle() { return \\$value; }\\n"
+        "<?php\n"
+        "function handle() { return $value; }\n"
         "register_rest_route('demo/v1', '/items', "
         "['methods' => 'GET', 'callback' => 'handle', "
-        "'permission_callback' => '__return_true']);\\n",
+        "'permission_callback' => '__return_true']);\n",
         encoding="utf-8",
     )
     monkeypatch.chdir(tmp_path)
