@@ -16,8 +16,19 @@ class IntegrityError(RuntimeError):
 
 def _load_manifest(path: Path) -> dict[str, Any]:
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        if os.name == "posix":
+            flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0)
+            fd = os.open(path, flags)
+            try:
+                if not stat.S_ISREG(os.fstat(fd).st_mode):
+                    raise OSError("manifest is not a regular file")
+                with os.fdopen(fd, "r", encoding="utf-8", closefd=False) as stream:
+                    payload = json.load(stream)
+            finally:
+                os.close(fd)
+        else:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise IntegrityError(f"unable to read investigation manifest: {exc}") from exc
     if not isinstance(payload, dict) or not isinstance(payload.get("artifacts"), list):
         raise IntegrityError("invalid investigation manifest: artifacts must be a list")
