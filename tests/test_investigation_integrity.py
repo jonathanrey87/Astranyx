@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -419,3 +420,72 @@ def test_windows_rejects_intermediate_directory_swap(tmp_path, monkeypatch):
     assert swapped
     assert result["valid"] is False
     assert result["artifacts_checked"] == 0
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows junction regression")
+def test_windows_uses_pinned_parent_after_junction_created(tmp_path, monkeypatch):
+    from astranyx.investigation import windows_reader
+
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    artifact = reports / "artifact.txt"
+    artifact.write_bytes(b"expected")
+
+    outside = tmp_path.parent / (tmp_path.name + "-outside-junction")
+    outside.mkdir()
+    (outside / "artifact.txt").write_bytes(b"outside!")
+    write_manifest(tmp_path, [record(artifact, tmp_path)])
+
+    moved = tmp_path / "reports-original"
+    real_safe_artifact = integrity._safe_artifact
+    real_handle_attributes = windows_reader._handle_attributes
+    armed = False
+    checked_directories = 0
+    junction_created = False
+
+    def arm_after_validation(root, value):
+        nonlocal armed
+        result = real_safe_artifact(root, value)
+        if result == artifact:
+            armed = True
+        return result
+
+    def create_junction_after_check(get_info, handle):
+        nonlocal checked_directories, junction_created
+        attributes = real_handle_attributes(get_info, handle)
+        if armed and attributes & 0x10:
+            checked_directories += 1
+            if checked_directories == 2:
+                reports.rename(moved)
+                process = subprocess.run(
+                    ["cmd", "/c", "mklink", "/J", str(reports), str(outside)],
+                    capture_output=True,
+                    check=False,
+                    text=True,
+                )
+                if process.returncode != 0:
+                    moved.rename(reports)
+                    pytest.skip(
+                        f"Windows junction creation unavailable: {process.stderr}"
+                    )
+                junction_created = True
+        return attributes
+
+    monkeypatch.setattr(integrity, "_safe_artifact", arm_after_validation)
+    monkeypatch.setattr(
+        windows_reader, "_handle_attributes", create_junction_after_check
+    )
+
+    try:
+        result = integrity.verify(tmp_path)
+    finally:
+        if junction_created:
+            os.rmdir(reports)
+        if moved.exists():
+            moved.rename(reports)
+        (outside / "artifact.txt").unlink(missing_ok=True)
+        outside.rmdir()
+
+    assert junction_created
+    assert result["valid"] is True
+    assert result["artifacts_checked"] == 1
