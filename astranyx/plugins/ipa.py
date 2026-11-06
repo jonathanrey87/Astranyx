@@ -1,8 +1,14 @@
 import plistlib
 import shutil
+import stat
 import tempfile
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
+
+MAX_ARCHIVE_MEMBERS = 10_000
+MAX_ARCHIVE_MEMBER_BYTES = 1 * 1024**3
+MAX_ARCHIVE_EXPANDED_BYTES = 2 * 1024**3
+COPY_CHUNK_BYTES = 1024 * 1024
 
 
 def find_app_dir(path: Path) -> Path | None:
@@ -28,10 +34,95 @@ def load_plist(app_dir: Path) -> dict:
 def extract_ipa(ipa_path: Path) -> Path:
     temp = Path(tempfile.mkdtemp(prefix="astranyx_ipa_"))
 
-    with zipfile.ZipFile(ipa_path, "r") as z:
-        z.extractall(temp)
+    try:
+        with zipfile.ZipFile(ipa_path, "r") as archive:
+            members = archive.infolist()
+            if len(members) > MAX_ARCHIVE_MEMBERS:
+                raise ValueError(
+                    f"IPA contains too many entries ({len(members)}; "
+                    f"maximum {MAX_ARCHIVE_MEMBERS})"
+                )
+
+            destinations: set[tuple[str, ...]] = set()
+            expanded_bytes = 0
+            validated: list[tuple[zipfile.ZipInfo, tuple[str, ...]]] = []
+
+            for member in members:
+                destination = _validated_member_destination(member)
+                if destination in destinations:
+                    raise ValueError(
+                        f"IPA contains a duplicate path: {member.filename}"
+                    )
+                destinations.add(destination)
+
+                if member.file_size > MAX_ARCHIVE_MEMBER_BYTES:
+                    raise ValueError(
+                        f"IPA entry exceeds the size limit: {member.filename}"
+                    )
+                expanded_bytes += member.file_size
+                if expanded_bytes > MAX_ARCHIVE_EXPANDED_BYTES:
+                    raise ValueError("IPA exceeds the expanded size limit")
+
+                validated.append((member, destination))
+
+            file_paths = {
+                destination for member, destination in validated if not member.is_dir()
+            }
+
+            for _, destination in validated:
+                if any(
+                    destination[:index] in file_paths
+                    for index in range(1, len(destination))
+                ):
+                    raise ValueError("IPA contains a file/directory path conflict")
+
+            extracted_bytes = 0
+            for member, destination in validated:
+                target = temp.joinpath(*destination)
+                if member.is_dir():
+                    target.mkdir(parents=True, exist_ok=True)
+                    continue
+
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with archive.open(member, "r") as source, target.open("xb") as output:
+                    member_bytes = 0
+                    while chunk := source.read(COPY_CHUNK_BYTES):
+                        member_bytes += len(chunk)
+                        extracted_bytes += len(chunk)
+                        if member_bytes > MAX_ARCHIVE_MEMBER_BYTES:
+                            raise ValueError(
+                                f"IPA entry exceeds the size limit: {member.filename}"
+                            )
+                        if extracted_bytes > MAX_ARCHIVE_EXPANDED_BYTES:
+                            raise ValueError("IPA exceeds the expanded size limit")
+                        output.write(chunk)
+    except BaseException:
+        shutil.rmtree(temp, ignore_errors=True)
+        raise
 
     return temp
+
+
+def _validated_member_destination(member: zipfile.ZipInfo) -> tuple[str, ...]:
+    name = member.filename
+    if not name or "\x00" in name or "\\" in name or name.startswith("/"):
+        raise ValueError(f"IPA contains an unsafe path: {name!r}")
+
+    raw_parts = name.rstrip("/").split("/")
+    if not raw_parts or any(part in {"", ".", ".."} for part in raw_parts):
+        raise ValueError(f"IPA contains an unsafe path: {name!r}")
+    if len(raw_parts[0]) == 2 and raw_parts[0][0].isalpha() and raw_parts[0][1] == ":":
+        raise ValueError(f"IPA contains an unsafe path: {name!r}")
+
+    path = PurePosixPath(*raw_parts)
+    mode = member.external_attr >> 16
+    file_type = stat.S_IFMT(mode)
+    if file_type and not (stat.S_ISREG(mode) or stat.S_ISDIR(mode)):
+        raise ValueError(f"IPA contains an unsupported entry type: {name}")
+    if member.flag_bits & 0x1:
+        raise ValueError(f"IPA contains an encrypted entry: {name}")
+
+    return path.parts
 
 
 def get_url_schemes(info: dict) -> list[str]:
