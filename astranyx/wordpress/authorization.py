@@ -281,8 +281,9 @@ def extract_rest_access_paths(
     """Extract registered REST paths and controls proven inside their callbacks."""
     if root:
         resolved_root = root.resolve()
-        file_name = str(path.relative_to(resolved_root))
-        text = read_source_text(resolved_root, path)
+        absolute_path = path.expanduser().absolute()
+        file_name = str(absolute_path.relative_to(resolved_root))
+        text = read_source_text(resolved_root, absolute_path)
     else:
         resolved = path.resolve()
         file_name = str(resolved)
