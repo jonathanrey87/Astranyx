@@ -72,4 +72,4 @@ jobs:
           -k "accepts_intact_investigation or
           reports_modified_and_missing_artifacts or
           rejects_unsafe_and_duplicate_paths or
-          returns_verified_manifest"
+          returns_verified_manifest or windows_rejects_symlinked_manifest"
