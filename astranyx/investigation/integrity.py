@@ -26,8 +26,12 @@ def _load_manifest(path: Path) -> dict[str, Any]:
                     payload = json.load(stream)
             finally:
                 os.close(fd)
+        elif os.name == "nt":
+            from astranyx.investigation.windows_reader import read_regular_windows
+
+            payload = json.loads(read_regular_windows(path).decode("utf-8"))
         else:
-            payload = json.loads(path.read_text(encoding="utf-8"))
+            raise OSError("unsupported filesystem platform")
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise IntegrityError(f"unable to read investigation manifest: {exc}") from exc
     if not isinstance(payload, dict) or not isinstance(payload.get("artifacts"), list):
@@ -61,9 +65,13 @@ def _safe_artifact(root: Path, value: Any) -> Path | None:
 
 def _read_artifact_nofollow(root: Path, relative: Path) -> bytes:
     """Read through directory handles, never following symlinks on POSIX."""
+    if os.name == "nt":
+        from astranyx.investigation.windows_reader import read_regular_windows
+
+        return read_regular_windows(root / relative, root=root)
+
     if os.name != "posix":
-        # Windows does not support this POSIX dir_fd/O_NOFOLLOW strategy.
-        return (root / relative).read_bytes()
+        raise OSError("unsupported filesystem platform")
 
     # O_PATH avoids requiring directory-listing permission on Linux.
     directory_flags = (

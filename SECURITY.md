@@ -69,3 +69,11 @@ evidence may remain untested.
 Integrity manifests detect later modification but do not establish signer
 identity. Users should protect local workspaces with operating-system access
 controls and encrypt sensitive deliverables when storing or transferring them.
+
+On Windows, manifest and artifact paths are opened one component at a time
+relative to checked directory handles, and reparse points are rejected. This is
+not a filesystem snapshot: concurrent mutation can still make verification
+fail, and Windows does not publish an atomic namespace guarantee covering every
+filesystem or third-party filter driver. The verifier provides fail-closed,
+handle-relative traversal on supported local filesystems, not stable snapshot
+semantics under concurrent writes.

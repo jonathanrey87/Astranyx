@@ -67,9 +67,9 @@ jobs:
 
       - name: Investigation integrity baseline
         run: >
-          python -m pytest -q
+          python -m pytest -q -rx
           tests/test_investigation_integrity.py
           -k "accepts_intact_investigation or
           reports_modified_and_missing_artifacts or
           rejects_unsafe_and_duplicate_paths or
-          returns_verified_manifest"
+          returns_verified_manifest or windows_rejects_symlinked_manifest or windows_rejects_artifact_swapped_after_validation or windows_rejects_intermediate_directory_swap or windows_uses_pinned_parent_after_junction_created"

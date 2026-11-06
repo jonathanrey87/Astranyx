@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -310,3 +311,181 @@ def test_verify_rejects_non_regular_manifest(tmp_path):
     (tmp_path / "manifest.json").mkdir()
     with pytest.raises(integrity.IntegrityError, match="not a regular file"):
         integrity.verify(tmp_path)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-specific security regression")
+def test_windows_rejects_symlinked_manifest(tmp_path):
+    outside = tmp_path.parent / (tmp_path.name + "-outside-manifest.json")
+    outside.write_text(json.dumps({"artifacts": []}))
+
+    manifest = tmp_path / "manifest.json"
+    try:
+        try:
+            manifest.symlink_to(outside)
+        except (OSError, NotImplementedError) as exc:
+            pytest.skip(f"Windows symlink creation unavailable: {exc}")
+
+        with pytest.raises(integrity.IntegrityError):
+            integrity.verify(tmp_path)
+    finally:
+        manifest.unlink(missing_ok=True)
+        outside.unlink(missing_ok=True)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-specific regression")
+def test_windows_rejects_artifact_swapped_after_validation(tmp_path, monkeypatch):
+    artifact = tmp_path / "artifact.txt"
+    artifact.write_bytes(b"expected")
+
+    outside = tmp_path.parent / (tmp_path.name + "-outside-artifact.txt")
+    outside.write_bytes(b"expected")
+
+    write_manifest(tmp_path, [record(artifact, tmp_path)])
+
+    real_safe_artifact = integrity._safe_artifact
+    swapped = False
+
+    def swap_after_validation(root, value):
+        nonlocal swapped
+        result = real_safe_artifact(root, value)
+
+        if result == artifact and not swapped:
+            try:
+                artifact.unlink()
+                artifact.symlink_to(outside)
+            except (OSError, NotImplementedError) as exc:
+                pytest.skip(f"Windows symlink unavailable: {exc}")
+            swapped = True
+
+        return result
+
+    monkeypatch.setattr(integrity, "_safe_artifact", swap_after_validation)
+
+    try:
+        result = integrity.verify(tmp_path)
+    finally:
+        artifact.unlink(missing_ok=True)
+        outside.unlink(missing_ok=True)
+
+    assert swapped
+    assert result["valid"] is False
+    assert result["artifacts_checked"] == 0
+    assert result["failures"][0]["reason"].startswith("unreadable:")
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-specific regression")
+def test_windows_rejects_intermediate_directory_swap(tmp_path, monkeypatch):
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    artifact = reports / "artifact.txt"
+    artifact.write_bytes(b"expected")
+
+    outside = tmp_path.parent / (tmp_path.name + "-outside-reports")
+    outside.mkdir()
+    (outside / "artifact.txt").write_bytes(b"expected")
+
+    write_manifest(tmp_path, [record(artifact, tmp_path)])
+
+    moved = tmp_path / "reports-original"
+    real_safe_artifact = integrity._safe_artifact
+    swapped = False
+
+    def swap_after_validation(root, value):
+        nonlocal swapped
+        result = real_safe_artifact(root, value)
+
+        if result == artifact and not swapped:
+            reports.rename(moved)
+            try:
+                reports.symlink_to(outside, target_is_directory=True)
+            except (OSError, NotImplementedError) as exc:
+                moved.rename(reports)
+                pytest.skip(f"Windows directory symlink unavailable: {exc}")
+            swapped = True
+
+        return result
+
+    monkeypatch.setattr(integrity, "_safe_artifact", swap_after_validation)
+
+    try:
+        result = integrity.verify(tmp_path)
+    finally:
+        if reports.is_symlink():
+            reports.unlink()
+        if moved.exists():
+            moved.rename(reports)
+        (outside / "artifact.txt").unlink(missing_ok=True)
+        outside.rmdir()
+
+    assert swapped
+    assert result["valid"] is False
+    assert result["artifacts_checked"] == 0
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows junction regression")
+def test_windows_uses_pinned_parent_after_junction_created(tmp_path, monkeypatch):
+    from astranyx.investigation import windows_reader
+
+    reports = tmp_path / "reports"
+    reports.mkdir()
+    artifact = reports / "artifact.txt"
+    artifact.write_bytes(b"expected")
+
+    outside = tmp_path.parent / (tmp_path.name + "-outside-junction")
+    outside.mkdir()
+    (outside / "artifact.txt").write_bytes(b"outside!")
+    write_manifest(tmp_path, [record(artifact, tmp_path)])
+
+    moved = tmp_path / "reports-original"
+    real_safe_artifact = integrity._safe_artifact
+    real_handle_attributes = windows_reader._handle_attributes
+    armed = False
+    checked_directories = 0
+    junction_created = False
+
+    def arm_after_validation(root, value):
+        nonlocal armed
+        result = real_safe_artifact(root, value)
+        if result == artifact:
+            armed = True
+        return result
+
+    def create_junction_after_check(get_info, handle):
+        nonlocal checked_directories, junction_created
+        attributes = real_handle_attributes(get_info, handle)
+        if armed and attributes & 0x10:
+            checked_directories += 1
+            if checked_directories == 2:
+                reports.rename(moved)
+                process = subprocess.run(
+                    ["cmd", "/c", "mklink", "/J", str(reports), str(outside)],
+                    capture_output=True,
+                    check=False,
+                    text=True,
+                )
+                if process.returncode != 0:
+                    moved.rename(reports)
+                    pytest.skip(
+                        f"Windows junction creation unavailable: {process.stderr}"
+                    )
+                junction_created = True
+        return attributes
+
+    monkeypatch.setattr(integrity, "_safe_artifact", arm_after_validation)
+    monkeypatch.setattr(
+        windows_reader, "_handle_attributes", create_junction_after_check
+    )
+
+    try:
+        result = integrity.verify(tmp_path)
+    finally:
+        if junction_created:
+            os.rmdir(reports)
+        if moved.exists():
+            moved.rename(reports)
+        (outside / "artifact.txt").unlink(missing_ok=True)
+        outside.rmdir()
+
+    assert junction_created
+    assert result["valid"] is True
+    assert result["artifacts_checked"] == 1
