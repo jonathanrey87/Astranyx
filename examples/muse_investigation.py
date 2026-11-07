@@ -1,4 +1,3 @@
-
 """Astranyx end-to-end AI investigation demonstration."""
 
 import argparse
@@ -22,8 +21,7 @@ class DemoProvider:
             {
                 "summary": "Possible broken object-level authorization",
                 "impact": (
-                    "Cross-account exposure is possible "
-                    "but remains unverified"
+                    "Cross-account exposure is possible " "but remains unverified"
                 ),
                 "next_step": (
                     "Use two authorized test accounts to "
@@ -93,6 +91,7 @@ def main():
     if report["errors"]:
         raise SystemExit("AI investigation completed with errors")
 
+
 def run_demo(*, output="demo-output", live=False):
     import sys
 
@@ -104,5 +103,7 @@ def run_demo(*, output="demo-output", live=False):
         main()
     finally:
         sys.argv = previous
+
+
 if __name__ == "__main__":
     main()
