@@ -304,6 +304,11 @@ def _extract_rest_access_paths_text(text: str, file_name: str) -> list[AccessPat
         route = _literal(arguments[1])
         callback = _callback(call, "callback")
         permission = _callback(call, "permission_callback")
+        # A literal deny-all permission callback makes the REST route
+        # unreachable, so it cannot be an alternate authorization path.
+        # Do not infer equivalent behavior from named or dynamic callbacks.
+        if permission == "__return_false":
+            continue
         callback_body = bodies.get(callback, "")
         permission_body = bodies.get(permission, "")
         controls = {
