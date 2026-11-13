@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
 
     steps:
 
@@ -73,3 +73,33 @@ jobs:
           reports_modified_and_missing_artifacts or
           rejects_unsafe_and_duplicate_paths or
           returns_verified_manifest or windows_rejects_symlinked_manifest or windows_rejects_artifact_swapped_after_validation or windows_rejects_intermediate_directory_swap or windows_uses_pinned_parent_after_junction_created"
+
+  package:
+    name: Build and validate release artifacts
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install packaging tools
+        run: python -m pip install --upgrade build twine
+
+      - name: Build source distribution and wheel
+        run: python -m build
+
+      - name: Validate distribution metadata
+        run: python -m twine check dist/*
+
+      - name: Check wheel installation in clean environment
+        shell: bash
+        run: |
+          python -m venv /tmp/astranyx-wheel-smoke
+          /tmp/astranyx-wheel-smoke/bin/python -m pip install dist/*.whl
+          /tmp/astranyx-wheel-smoke/bin/python -m pip show astranyx-engine
+          /tmp/astranyx-wheel-smoke/bin/astranyx --help
