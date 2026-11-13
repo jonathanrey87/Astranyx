@@ -183,3 +183,55 @@ function two($post) { return beta_user_can_view_document($post->ID); }
     )
     inventory = analyze_plugin_authorization(tmp_path)
     assert inventory.policies == ()
+
+
+def test_deny_all_rest_route_is_not_an_access_path(tmp_path):
+    source = tmp_path / "disabled.php"
+    source.write_text(
+        """<?php
+register_rest_route('demo/v1', '/disabled/(?P<id>\\\\d+)', [
+    'methods' => 'GET',
+    'callback' => 'read_record',
+    'permission_callback' => '__return_false',
+]);
+register_rest_route('demo/v1', '/public/(?P<id>\\\\d+)', [
+    'methods' => 'GET',
+    'callback' => 'read_record',
+    'permission_callback' => '__return_true',
+]);
+""",
+        encoding="utf-8",
+    )
+    paths = extract_rest_access_paths(source, root=tmp_path)
+    assert len(paths) == 1
+    assert paths[0].route.startswith("/demo/v1/public/")
+    assert paths[0].exposure == "public"
+
+
+def test_deny_all_route_does_not_trigger_authorization_differential(tmp_path):
+    (tmp_path / "policy.php").write_text(
+        """<?php
+function policy($post) {
+    return job_manager_user_can_view_job_listing($post->ID);
+}
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "routes.php").write_text(
+        """<?php
+register_rest_route('demo/v1', '/blocked/(?P<id>\\\\d+)', [
+    'methods' => 'GET',
+    'callback' => 'read_listing',
+    'permission_callback' => '__return_false',
+]);
+function read_listing($request) {
+    $type = WP_Job_Manager_Post_Types::PT_LISTING;
+    return prepare_item_for_response($request['id']);
+}
+""",
+        encoding="utf-8",
+    )
+    inventory = analyze_plugin_authorization(tmp_path)
+    assert inventory.policies
+    assert inventory.paths == ()
+    assert inventory.differentials == ()
