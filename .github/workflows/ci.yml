@@ -48,8 +48,13 @@ jobs:
           pytest -q
 
   windows-integrity:
-    name: Windows integrity baseline
+    name: Windows integrity baseline (${{ matrix.python-version }})
     runs-on: windows-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13", "3.14"]
 
     steps:
       - name: Checkout
@@ -58,7 +63,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |
@@ -75,8 +80,13 @@ jobs:
           returns_verified_manifest or windows_rejects_symlinked_manifest or windows_rejects_artifact_swapped_after_validation or windows_rejects_intermediate_directory_swap or windows_uses_pinned_parent_after_junction_created"
 
   package:
-    name: Build and validate release artifacts
+    name: Build and validate release artifacts (${{ matrix.python-version }})
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13", "3.14"]
 
     steps:
       - name: Checkout
@@ -85,7 +95,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python-version }}
 
       - name: Install packaging tools
         run: python -m pip install --upgrade build twine
