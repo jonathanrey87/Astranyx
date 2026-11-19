@@ -106,7 +106,13 @@ def _load_plan(path: str | Path, plan_id: str | None) -> tuple[dict[str, Any], s
 
 
 def _write_exclusive(path: Path, content: bytes) -> None:
-    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0)
+    flags = (
+        os.O_CREAT
+        | os.O_EXCL
+        | os.O_WRONLY
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_BINARY", 0)
+    )
     descriptor = os.open(path, flags, 0o600)
     try:
         view = memoryview(content)
