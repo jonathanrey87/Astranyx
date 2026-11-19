@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feature/**
+      - fix/windows-secure-reader
   pull_request:
     branches:
       - main
