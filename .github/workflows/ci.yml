@@ -8,7 +8,7 @@ on:
   pull_request:
     branches:
       - main
-
+      - ci/windows-python314-baseline
 jobs:
   test:
 
