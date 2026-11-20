@@ -53,3 +53,23 @@ def test_rejects_root_swapped_before_native_open(tmp_path, monkeypatch):
     with pytest.raises(OSError):
         read_bounded(root, "proof.txt", 1024)
     assert swapped[0]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows only")
+def test_rejects_ancestor_directory_junction(tmp_path):
+    target = tmp_path / "target"
+    target.mkdir()
+    evidence = target / "evidence"
+    evidence.mkdir()
+    (evidence / "proof.txt").write_text("ANCESTOR_TEST", encoding="utf-8")
+    link = tmp_path / "parent-link"
+    result = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(target)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        pytest.skip("Junction creation unavailable")
+    with pytest.raises(OSError):
+        read_bounded(link / "evidence", "proof.txt", 1024)
