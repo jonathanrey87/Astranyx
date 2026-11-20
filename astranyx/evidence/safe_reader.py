@@ -25,8 +25,6 @@ def read_bounded(root: Path, relative: str, limit: int) -> bytes:
     Windows is intentionally unsupported until a secure
     platform-specific implementation is available.
     """
-    if os.name != "posix":
-        raise SafeReadError("secure evidence reading requires POSIX")
 
     if not isinstance(relative, str) or not relative:
         raise SafeReadError("invalid evidence path")
@@ -45,6 +43,13 @@ def read_bounded(root: Path, relative: str, limit: int) -> bytes:
 
     if not isinstance(limit, int) or isinstance(limit, bool) or limit < 0:
         raise SafeReadError("invalid size limit")
+
+    if os.name == "nt":
+        from astranyx.evidence.windows_reader import read_windows
+
+        return read_windows(root, relative, limit)
+    if os.name != "posix":
+        raise SafeReadError("unsupported secure evidence reading platform")
 
     file_flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK
 

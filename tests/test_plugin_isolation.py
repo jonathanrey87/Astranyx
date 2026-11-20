@@ -165,3 +165,92 @@ def test_cli_validates_plugin_without_executing_it(tmp_path, monkeypatch, capsys
     monkeypatch.setattr(sys, "argv", ["astranyx", "plugin", "validate", str(root)])
     main()
     assert json.loads(capsys.readouterr().out)["name"] == "test-plugin"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows NTFS ACL regression")
+def test_windows_signing_rejects_world_access(tmp_path):
+    import win32security
+
+    root = write_plugin(tmp_path)
+    private, _ = write_keys(tmp_path)
+    everyone = win32security.ConvertStringSidToSid("S-1-1-0")
+    descriptor = win32security.GetNamedSecurityInfo(
+        str(private),
+        win32security.SE_FILE_OBJECT,
+        win32security.DACL_SECURITY_INFORMATION,
+    )
+    dacl = descriptor.GetSecurityDescriptorDacl()
+    assert dacl is not None
+    dacl.AddAccessAllowedAce(win32security.ACL_REVISION, 0x00020000, everyone)
+    win32security.SetNamedSecurityInfo(
+        str(private),
+        win32security.SE_FILE_OBJECT,
+        win32security.DACL_SECURITY_INFORMATION,
+        None,
+        None,
+        dacl,
+        None,
+    )
+    with pytest.raises(PluginError, match="untrusted access"):
+        sign_manifest(root, private, "publisher")
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows NTFS ACL regression")
+def test_windows_keyring_rejects_world_access(tmp_path):
+    import win32security
+
+    root = write_plugin(tmp_path)
+    private, keyring = write_keys(tmp_path)
+    sign_manifest(root, private, "publisher")
+    everyone = win32security.ConvertStringSidToSid("S-1-1-0")
+    descriptor = win32security.GetNamedSecurityInfo(
+        str(keyring),
+        win32security.SE_FILE_OBJECT,
+        win32security.DACL_SECURITY_INFORMATION,
+    )
+    dacl = descriptor.GetSecurityDescriptorDacl()
+    assert dacl is not None
+    dacl.AddAccessAllowedAce(win32security.ACL_REVISION, 0x00020000, everyone)
+    win32security.SetNamedSecurityInfo(
+        str(keyring),
+        win32security.SE_FILE_OBJECT,
+        win32security.DACL_SECURITY_INFORMATION,
+        None,
+        None,
+        dacl,
+        None,
+    )
+    manifest = PluginManifest.load(root)[0]
+    with pytest.raises(PluginError, match="untrusted access"):
+        verify_signature(manifest, keyring)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows plugin key replacement regression")
+def test_windows_signing_resists_key_path_replacement(tmp_path, monkeypatch):
+    """Signatures must come from the validated original key, not a swapped path."""
+    import importlib
+
+    isolation = importlib.import_module("astranyx.plugin_runtime.isolation")
+    plugin = write_plugin(tmp_path)
+    original_private, original_keyring = write_keys(tmp_path)
+    alternate_private, _ = write_keys(tmp_path / "alternate")
+    real_run = subprocess.run
+    replacement_attempts = []
+
+    def substitute_before_openssl(args, *positional, **keywords):
+        if "pkeyutl" in args and "-sign" in args:
+            try:
+                # Simulate directory-entry replacement after ACL validation.
+                os.replace(alternate_private, original_private)
+            except PermissionError:
+                replacement_attempts.append("blocked")
+            else:
+                replacement_attempts.append("replaced")
+        return real_run(args, *positional, **keywords)
+
+    monkeypatch.setattr(isolation.subprocess, "run", substitute_before_openssl)
+    signed = sign_manifest(plugin, original_private, "publisher")
+    assert replacement_attempts, "test did not reach the signing subprocess"
+    # Secure implementations must either block replacement while signing or
+    # sign from a protected snapshot of the originally validated key bytes.
+    verify_signature(signed, original_keyring)

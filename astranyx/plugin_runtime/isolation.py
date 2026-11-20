@@ -11,6 +11,7 @@ import secrets
 import shutil
 import subprocess
 import tempfile
+from contextlib import contextmanager, nullcontext
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -177,6 +178,91 @@ class PluginManifest:
         return json.dumps(document, sort_keys=True, separators=(",", ":")).encode()
 
 
+@contextmanager
+def _hold_windows_key_acl(path: Path, *, directory: bool = False):
+    """Fail closed for unexpected owners, ACEs, and Windows reparse points.
+
+    Inspect the opened object, not a separately resolved pathname. This check
+    does not grant access, mutate ACLs, or authorize execution of a plugin.
+    """
+    validated = False
+    try:
+        import win32api
+        import win32con
+        import win32file
+        import win32security
+
+        token = win32security.OpenProcessToken(
+            win32api.GetCurrentProcess(), win32con.TOKEN_QUERY
+        )
+        user = win32security.GetTokenInformation(token, win32security.TokenUser)[0]
+        system = win32security.ConvertStringSidToSid("S-1-5-18")
+        admins = win32security.ConvertStringSidToSid("S-1-5-32-544")
+        owner_rights = win32security.ConvertStringSidToSid("S-1-3-4")
+        trusted = (user, system, admins, owner_rights)
+
+        # FILE_FLAG_OPEN_REPARSE_POINT is not exported by every pywin32 build.
+        flags = 0x00200000
+        if directory:
+            flags |= 0x02000000  # FILE_FLAG_BACKUP_SEMANTICS
+        handle = win32file.CreateFile(
+            str(path),
+            win32con.READ_CONTROL | 0x0080,
+            win32con.FILE_SHARE_READ,
+            None,
+            win32con.OPEN_EXISTING,
+            flags,
+            None,
+        )
+        try:
+            info = win32file.GetFileInformationByHandle(handle)
+            if info[0] & 0x00000400:  # FILE_ATTRIBUTE_REPARSE_POINT
+                raise PluginError("plugin key path must not be a reparse point")
+            descriptor = win32security.GetSecurityInfo(
+                handle,
+                win32security.SE_FILE_OBJECT,
+                win32security.OWNER_SECURITY_INFORMATION
+                | win32security.DACL_SECURITY_INFORMATION,
+            )
+            owner = descriptor.GetSecurityDescriptorOwner()
+            dacl = descriptor.GetSecurityDescriptorDacl()
+            if owner not in (user, admins) or dacl is None:
+                raise PluginError("plugin key owner or ACL is unsafe")
+            owner_access = False
+            for index in range(dacl.GetAceCount()):
+                ace = dacl.GetAce(index)
+                ace_type = ace[0][0]
+                sid = ace[2]
+                if ace_type == win32security.ACCESS_ALLOWED_ACE_TYPE:
+                    if sid not in trusted:
+                        raise PluginError("plugin key ACL grants untrusted access")
+                    if sid in (user, owner_rights):
+                        owner_access = True
+                elif ace_type != win32security.ACCESS_DENIED_ACE_TYPE:
+                    raise PluginError("plugin key ACL has unsupported ACE type")
+            if not owner_access:
+                raise PluginError("plugin key ACL lacks owner access")
+            # Keep this validated handle open across the OpenSSL subprocess.
+            # No FILE_SHARE_DELETE or FILE_SHARE_WRITE: block path replacement
+            # and in-place modification while the key is consumed.
+            validated = True
+            yield
+        finally:
+            handle.Close()
+    except PluginError:
+        raise
+    except Exception as exc:
+        if validated:
+            raise
+        raise PluginError("Windows plugin key ACL verification failed") from exc
+
+
+def _verify_windows_key_acl(path: Path, *, directory: bool = False) -> None:
+    """Validate a Windows key/path ACL and close its handle immediately."""
+    with _hold_windows_key_acl(path, directory=directory):
+        pass
+
+
 def verify_signature(
     manifest: PluginManifest,
     keyring: str | Path,
@@ -192,14 +278,16 @@ def verify_signature(
     root = Path(keyring).expanduser()
     if root.is_symlink() or not root.is_dir():
         raise PluginError("publisher keyring must be a non-symlink directory")
-    if root.stat().st_mode & 0o022:
+    if os.name == "nt":
+        _verify_windows_key_acl(root, directory=True)
+    elif root.stat().st_mode & 0o022:
         raise PluginError("publisher keyring must not be group- or world-writable")
     public_key = root / f"{manifest.publisher_key_id}.pem"
     if (
         public_key.is_symlink()
         or not public_key.is_file()
         or public_key.stat().st_size > 65_536
-        or public_key.stat().st_mode & 0o022
+        or (os.name != "nt" and public_key.stat().st_mode & 0o022)
     ):
         raise PluginError("trusted publisher key is missing or unsafe")
     signature = base64.b64decode(manifest.signature, validate=True)
@@ -208,24 +296,26 @@ def verify_signature(
         signature_path = Path(temporary) / "manifest.sig"
         payload_path.write_bytes(manifest.signed_payload())
         signature_path.write_bytes(signature)
-        result = subprocess.run(
-            [
-                executable,
-                "pkeyutl",
-                "-verify",
-                "-pubin",
-                "-inkey",
-                str(public_key),
-                "-rawin",
-                "-in",
-                str(payload_path),
-                "-sigfile",
-                str(signature_path),
-            ],
-            capture_output=True,
-            timeout=10,
-            check=False,
-        )
+        guard = _hold_windows_key_acl(public_key) if os.name == "nt" else nullcontext()
+        with guard:
+            result = subprocess.run(
+                [
+                    executable,
+                    "pkeyutl",
+                    "-verify",
+                    "-pubin",
+                    "-inkey",
+                    str(public_key),
+                    "-rawin",
+                    "-in",
+                    str(payload_path),
+                    "-sigfile",
+                    str(signature_path),
+                ],
+                capture_output=True,
+                timeout=10,
+                check=False,
+            )
     if result.returncode != 0:
         raise PluginError("plugin manifest signature verification failed")
 
@@ -248,7 +338,7 @@ def sign_manifest(
         key.is_symlink()
         or not key.is_file()
         or key.stat().st_size > 65_536
-        or key.stat().st_mode & 0o077
+        or (os.name != "nt" and key.stat().st_mode & 0o077)
     ):
         raise PluginError("private signing key must be a restricted regular file")
     manifest, root = PluginManifest.load(plugin_dir)
@@ -265,23 +355,25 @@ def sign_manifest(
         payload_path = Path(temporary) / "manifest.bin"
         signature_path = Path(temporary) / "manifest.sig"
         payload_path.write_bytes(payload)
-        result = subprocess.run(
-            [
-                executable,
-                "pkeyutl",
-                "-sign",
-                "-inkey",
-                str(key),
-                "-rawin",
-                "-in",
-                str(payload_path),
-                "-out",
-                str(signature_path),
-            ],
-            capture_output=True,
-            timeout=10,
-            check=False,
-        )
+        guard = _hold_windows_key_acl(key) if os.name == "nt" else nullcontext()
+        with guard:
+            result = subprocess.run(
+                [
+                    executable,
+                    "pkeyutl",
+                    "-sign",
+                    "-inkey",
+                    str(key),
+                    "-rawin",
+                    "-in",
+                    str(payload_path),
+                    "-out",
+                    str(signature_path),
+                ],
+                capture_output=True,
+                timeout=10,
+                check=False,
+            )
         if result.returncode != 0:
             raise PluginError("plugin manifest signing failed")
         signature = base64.b64encode(signature_path.read_bytes()).decode("ascii")
