@@ -104,6 +104,117 @@ class VerificationResult:
         }
 
 
+def _secure_windows_file(descriptor: int, path: Path) -> None:
+    """Tighten and verify the same NTFS file through a checked native handle.
+
+    Experimental: security review still required for hostile directory races.
+    """
+    import msvcrt
+
+    try:
+        import win32api
+        import win32con
+        import win32file
+        import win32security
+
+        original = msvcrt.get_osfhandle(descriptor)
+        original_info = win32file.GetFileInformationByHandle(original)
+        if original_info[0] & 0x400:  # FILE_ATTRIBUTE_REPARSE_POINT
+            raise LedgerError("Windows ledger reparse point is forbidden")
+        if path.is_symlink():
+            raise LedgerError("Windows ledger symlink is forbidden")
+
+        token = win32security.OpenProcessToken(
+            win32api.GetCurrentProcess(), win32con.TOKEN_QUERY
+        )
+        user_sid = win32security.GetTokenInformation(token, win32security.TokenUser)[0]
+        admin_sid = win32security.ConvertStringSidToSid("S-1-5-32-544")
+        system_sid = win32security.ConvertStringSidToSid("S-1-5-18")
+        rights = win32con.READ_CONTROL | win32con.WRITE_DAC
+        sharing = (
+            win32con.FILE_SHARE_READ
+            | win32con.FILE_SHARE_WRITE
+            | win32con.FILE_SHARE_DELETE
+        )
+        native = win32file.CreateFile(
+            str(path),
+            rights,
+            sharing,
+            None,
+            win32con.OPEN_EXISTING,
+            0x00200000,
+            None,  # FILE_FLAG_OPEN_REPARSE_POINT
+        )
+        try:
+            actual = win32file.GetFileInformationByHandle(native)
+            # Volume serial and file index are identity fields on Windows.
+            identity = lambda info: (info[4], info[8], info[9])
+            if (actual[0] & 0x400) or identity(actual) != identity(original_info):
+                raise LedgerError("Windows ledger file changed or is a reparse point")
+            current = win32security.GetSecurityInfo(
+                native,
+                win32security.SE_FILE_OBJECT,
+                win32security.OWNER_SECURITY_INFORMATION
+                | win32security.DACL_SECURITY_INFORMATION,
+            )
+            owner = current.GetSecurityDescriptorOwner()
+            if owner not in (user_sid, admin_sid):
+                raise LedgerError("Windows ledger file owner is unsafe")
+
+            dacl = win32security.ACL()
+            for sid in (user_sid, system_sid, admin_sid):
+                dacl.AddAccessAllowedAce(win32security.ACL_REVISION, 0x1F01FF, sid)
+            win32security.SetSecurityInfo(
+                native,
+                win32security.SE_FILE_OBJECT,
+                win32security.DACL_SECURITY_INFORMATION
+                | win32security.PROTECTED_DACL_SECURITY_INFORMATION,
+                None,
+                None,
+                dacl,
+                None,
+            )
+            verified = win32security.GetSecurityInfo(
+                original,
+                win32security.SE_FILE_OBJECT,
+                win32security.OWNER_SECURITY_INFORMATION
+                | win32security.DACL_SECURITY_INFORMATION,
+            )
+            control, _ = verified.GetSecurityDescriptorControl()
+            if not (control & 0x1000):  # SE_DACL_PROTECTED
+                raise LedgerError("Windows ledger DACL is not protected")
+            current_dacl = verified.GetSecurityDescriptorDacl()
+            if current_dacl is None or current_dacl.GetAceCount() != 3:
+                raise LedgerError("Windows ledger DACL was not restricted")
+            expected_sids = {
+                win32security.ConvertSidToStringSid(sid)
+                for sid in (user_sid, system_sid, admin_sid)
+            }
+            actual_sids = set()
+            for index in range(current_dacl.GetAceCount()):
+                ace = current_dacl.GetAce(index)
+                if ace[0][0] != win32security.ACCESS_ALLOWED_ACE_TYPE:
+                    raise LedgerError("Windows ledger DACL contains unsafe ACE")
+                if ace[1] != 0x1F01FF:
+                    raise LedgerError("Windows ledger ACE permissions are unsafe")
+                if ace[0][1] & 0x10:  # INHERITED_ACE
+                    raise LedgerError("Windows ledger DACL contains inherited ACE")
+                actual_sids.add(win32security.ConvertSidToStringSid(ace[2]))
+            if actual_sids != expected_sids:
+                raise LedgerError("Windows ledger ACL grants unexpected access")
+        finally:
+            native.Close()
+    except (ImportError, OSError) as exc:
+        raise LedgerError("Windows ledger ACL enforcement failed") from exc
+
+
+def _secure_file_mode(descriptor: int, path: Path) -> None:
+    if os.name == "nt":
+        _secure_windows_file(descriptor, path)
+    else:
+        os.fchmod(descriptor, 0o600)
+
+
 class AuditLedger:
     """Append-only JSONL ledger chained with SHA-256 hashes."""
 
@@ -137,11 +248,15 @@ class AuditLedger:
 
     @contextmanager
     def _exclusive_lock(self):
-        flags = os.O_CREAT | os.O_RDWR
+        flags = getattr(os, "O_BINARY", 0) | os.O_CREAT | os.O_RDWR
         if hasattr(os, "O_NOFOLLOW"):
             flags |= os.O_NOFOLLOW
         descriptor = os.open(self._lock_path, flags, 0o600)
-        os.fchmod(descriptor, 0o600)
+        try:
+            _secure_file_mode(descriptor, self._lock_path)
+        except BaseException:
+            os.close(descriptor)
+            raise
         try:
             if os.name == "nt":
                 import msvcrt
@@ -170,11 +285,12 @@ class AuditLedger:
     def _read_locked(self) -> str:
         if not self.path.exists():
             return ""
-        flags = os.O_RDONLY
+        flags = getattr(os, "O_BINARY", 0) | os.O_RDONLY
         if hasattr(os, "O_NOFOLLOW"):
             flags |= os.O_NOFOLLOW
         descriptor = os.open(self.path, flags)
         try:
+            _secure_file_mode(descriptor, self.path)
             if os.fstat(descriptor).st_size > self.max_bytes:
                 raise LedgerError("ledger exceeds configured size bound")
             chunks = []
@@ -193,12 +309,12 @@ class AuditLedger:
     def _read_head_locked(self) -> dict[str, Any] | None:
         if not self._head_path.exists():
             return None
-        flags = os.O_RDONLY
+        flags = getattr(os, "O_BINARY", 0) | os.O_RDONLY
         if hasattr(os, "O_NOFOLLOW"):
             flags |= os.O_NOFOLLOW
         descriptor = os.open(self._head_path, flags)
         try:
-            os.fchmod(descriptor, 0o600)
+            _secure_file_mode(descriptor, self._head_path)
             payload = os.read(descriptor, 16_384)
             if os.read(descriptor, 1):
                 raise LedgerError("ledger head checkpoint is too large")
@@ -227,11 +343,12 @@ class AuditLedger:
         temporary = self._head_path.with_name(
             f"{self._head_path.name}.tmp-{os.getpid()}-{secrets.token_hex(8)}"
         )
-        flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+        flags = getattr(os, "O_BINARY", 0) | os.O_CREAT | os.O_EXCL | os.O_WRONLY
         if hasattr(os, "O_NOFOLLOW"):
             flags |= os.O_NOFOLLOW
         descriptor = os.open(temporary, flags, 0o600)
         try:
+            _secure_file_mode(descriptor, temporary)
             view = memoryview(payload)
             while view:
                 written = os.write(descriptor, view)
@@ -334,12 +451,12 @@ class AuditLedger:
                 raise LedgerError("ledger record exceeds configured size bound")
             if len(content.encode("utf-8")) + len(encoded) > self.max_bytes:
                 raise LedgerError("ledger exceeds configured size bound")
-            flags = os.O_APPEND | os.O_CREAT | os.O_WRONLY
+            flags = getattr(os, "O_BINARY", 0) | os.O_APPEND | os.O_CREAT | os.O_WRONLY
             if hasattr(os, "O_NOFOLLOW"):
                 flags |= os.O_NOFOLLOW
             descriptor = os.open(self.path, flags, 0o600)
             try:
-                os.fchmod(descriptor, 0o600)
+                _secure_file_mode(descriptor, self.path)
                 view = memoryview(encoded)
                 while view:
                     written = os.write(descriptor, view)

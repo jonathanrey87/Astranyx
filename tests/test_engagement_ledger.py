@@ -8,6 +8,38 @@ import pytest
 from astranyx.engagement.ledger import REDACTED, AuditLedger, LedgerError, redact_url
 
 
+def _assert_restricted_ledger_permissions(path):
+    if os.name != "nt":
+        assert path.stat().st_mode & 0o777 == 0o600
+        return
+
+    import win32security
+
+    sd = win32security.GetNamedSecurityInfo(
+        str(path),
+        win32security.SE_FILE_OBJECT,
+        win32security.DACL_SECURITY_INFORMATION,
+    )
+    control, _ = sd.GetSecurityDescriptorControl()
+    assert control & 0x1000, "Windows ledger DACL must be protected"
+    dacl = sd.GetSecurityDescriptorDacl()
+    assert dacl is not None
+    assert dacl.GetAceCount() == 3
+    actual = set()
+    for index in range(dacl.GetAceCount()):
+        ace = dacl.GetAce(index)
+        assert ace[0][0] == win32security.ACCESS_ALLOWED_ACE_TYPE
+        assert ace[1] == 0x1F01FF, "Unexpected Windows ledger ACE permissions"
+        assert not (ace[0][1] & 0x10), "Inherited ACE is forbidden"
+        actual.add(win32security.ConvertSidToStringSid(ace[2]))
+    trusted = {
+        "S-1-5-18",  # SYSTEM
+        "S-1-5-32-544",  # Administrators
+    }
+    assert trusted.issubset(actual)
+    assert len(actual) == 3  # SYSTEM, Administrators, current user
+
+
 def append_many(path, start, count):
     ledger = AuditLedger(path, "eng-1")
     for index in range(start, start + count):
@@ -32,7 +64,7 @@ def test_ledger_chains_records_and_redacts_secrets(tmp_path):
     records = [json.loads(line) for line in path.read_text().splitlines()]
     assert records[0]["data"]["url"] == f"https://example.test/path?{REDACTED}"
     assert records[0]["data"]["headers"]["Authorization"] == REDACTED
-    assert path.stat().st_mode & 0o777 == 0o600
+    _assert_restricted_ledger_permissions(path)
 
 
 def test_ledger_detects_tampering_before_append(tmp_path):
@@ -147,7 +179,7 @@ def test_precreated_ledger_permissions_are_tightened(tmp_path):
     path.touch(mode=0o644)
     ledger = AuditLedger(path, "eng-1")
     ledger.append("event", {})
-    assert path.stat().st_mode & 0o777 == 0o600
+    _assert_restricted_ledger_permissions(path)
 
 
 def test_rejects_oversized_records_and_unsafe_event_names(tmp_path):
@@ -161,3 +193,30 @@ def test_rejects_oversized_records_and_unsafe_event_names(tmp_path):
         ledger.append("event", {"value": "A" * 1024})
     with pytest.raises(LedgerError, match="identifier"):
         ledger.append("event\nsecret", {})
+
+
+def test_lock_descriptor_closed_when_permission_enforcement_fails(
+    tmp_path, monkeypatch
+):
+    import errno
+    import importlib
+    import os
+
+    module = importlib.import_module("astranyx.engagement.ledger")
+    ledger = module.AuditLedger(tmp_path / "audit.jsonl", "eng-1")
+    captured = {}
+
+    def fail_permissions(descriptor, path):
+        captured["descriptor"] = descriptor
+        raise RuntimeError("simulated ACL failure")
+
+    monkeypatch.setattr(module, "_secure_file_mode", fail_permissions)
+    with (
+        pytest.raises(RuntimeError, match="simulated ACL failure"),
+        ledger._exclusive_lock(),
+    ):
+        pytest.fail("Lock unexpectedly acquired")
+
+    with pytest.raises(OSError) as exc:
+        os.fstat(captured["descriptor"])
+    assert exc.value.errno == errno.EBADF

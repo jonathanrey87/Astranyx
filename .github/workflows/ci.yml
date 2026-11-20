@@ -5,10 +5,11 @@ on:
     branches:
       - main
       - feature/**
+      - fix/windows-secure-reader
   pull_request:
     branches:
       - main
-
+      - ci/windows-python314-baseline
 jobs:
   test:
 
