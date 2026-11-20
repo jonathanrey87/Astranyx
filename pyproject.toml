@@ -42,6 +42,7 @@ dev = [
     "pytest==9.1.1",
     "ruff==0.16.1",
     "twine==6.2.0",
+    "pywin32==312; sys_platform == 'win32'",
 ]
 ios = ["pymobiledevice3"]
 telemetry = [

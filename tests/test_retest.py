@@ -95,8 +95,8 @@ def test_write_report_creates_sealed_retest_bundle(tmp_path):
         "retest.md",
         "index.html",
     }
-    assert "Not observed" in (output / "index.html").read_text()
-    assert "Fixed: 1" in (output / "retest.md").read_text()
+    assert "Not observed" in (output / "index.html").read_text(encoding="utf-8")
+    assert "Fixed: 1" in (output / "retest.md").read_text(encoding="utf-8")
     for artifact in manifest["artifacts"]:
         path = output / artifact["path"]
         assert hashlib.sha256(path.read_bytes()).hexdigest() == artifact["sha256"]
@@ -155,5 +155,5 @@ def test_dashboard_output_conflict_preserves_existing_file(tmp_path):
     (output / "index.html").write_text("existing report")
     with pytest.raises(retest.RetestError, match="refusing to overwrite"):
         retest.write_report(baseline, current, output)
-    assert (output / "index.html").read_text() == "existing report"
+    assert (output / "index.html").read_text(encoding="utf-8") == "existing report"
     assert not (output / "retest.json").exists()
