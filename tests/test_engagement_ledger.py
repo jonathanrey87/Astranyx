@@ -29,6 +29,7 @@ def _assert_restricted_ledger_permissions(path):
     for index in range(dacl.GetAceCount()):
         ace = dacl.GetAce(index)
         assert ace[0][0] == win32security.ACCESS_ALLOWED_ACE_TYPE
+        assert ace[1] == 0x1F01FF, "Unexpected Windows ledger ACE permissions"
         assert not (ace[0][1] & 0x10), "Inherited ACE is forbidden"
         actual.add(win32security.ConvertSidToStringSid(ace[2]))
     trusted = {

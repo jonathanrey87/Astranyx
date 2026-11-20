@@ -195,6 +195,8 @@ def _secure_windows_file(descriptor: int, path: Path) -> None:
                 ace = current_dacl.GetAce(index)
                 if ace[0][0] != win32security.ACCESS_ALLOWED_ACE_TYPE:
                     raise LedgerError("Windows ledger DACL contains unsafe ACE")
+                if ace[1] != 0x1F01FF:
+                    raise LedgerError("Windows ledger ACE permissions are unsafe")
                 if ace[0][1] & 0x10:  # INHERITED_ACE
                     raise LedgerError("Windows ledger DACL contains inherited ACE")
                 actual_sids.add(win32security.ConvertSidToStringSid(ace[2]))
