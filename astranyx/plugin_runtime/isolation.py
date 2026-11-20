@@ -205,9 +205,12 @@ def _hold_windows_key_acl(path: Path, *, directory: bool = False):
         flags = 0x00200000
         if directory:
             flags |= 0x02000000  # FILE_FLAG_BACKUP_SEMANTICS
+        access = win32con.READ_CONTROL | 0x0080
+        if not directory:
+            access |= win32con.GENERIC_READ
         handle = win32file.CreateFile(
             str(path),
-            win32con.READ_CONTROL | 0x0080,
+            access,
             win32con.FILE_SHARE_READ,
             None,
             win32con.OPEN_EXISTING,
@@ -218,6 +221,8 @@ def _hold_windows_key_acl(path: Path, *, directory: bool = False):
             info = win32file.GetFileInformationByHandle(handle)
             if info[0] & 0x00000400:  # FILE_ATTRIBUTE_REPARSE_POINT
                 raise PluginError("plugin key path must not be a reparse point")
+            if not directory and ((info[5] << 32) | info[6]) > 65_536:
+                raise PluginError("plugin key exceeds the maximum allowed size")
             descriptor = win32security.GetSecurityInfo(
                 handle,
                 win32security.SE_FILE_OBJECT,
@@ -246,7 +251,7 @@ def _hold_windows_key_acl(path: Path, *, directory: bool = False):
             # No FILE_SHARE_DELETE or FILE_SHARE_WRITE: block path replacement
             # and in-place modification while the key is consumed.
             validated = True
-            yield
+            yield handle
         finally:
             handle.Close()
     except PluginError:
@@ -261,6 +266,13 @@ def _verify_windows_key_acl(path: Path, *, directory: bool = False) -> None:
     """Validate a Windows key/path ACL and close its handle immediately."""
     with _hold_windows_key_acl(path, directory=directory):
         pass
+
+
+def _windows_handle_identity(handle: Any) -> tuple[int, int, int]:
+    import win32file
+
+    info = win32file.GetFileInformationByHandle(handle)
+    return info[4], info[8], info[9]
 
 
 def verify_signature(
@@ -278,44 +290,59 @@ def verify_signature(
     root = Path(keyring).expanduser()
     if root.is_symlink() or not root.is_dir():
         raise PluginError("publisher keyring must be a non-symlink directory")
-    if os.name == "nt":
-        _verify_windows_key_acl(root, directory=True)
-    elif root.stat().st_mode & 0o022:
+    if os.name != "nt" and root.stat().st_mode & 0o022:
         raise PluginError("publisher keyring must not be group- or world-writable")
-    public_key = root / f"{manifest.publisher_key_id}.pem"
-    if (
-        public_key.is_symlink()
-        or not public_key.is_file()
-        or public_key.stat().st_size > 65_536
-        or (os.name != "nt" and public_key.stat().st_mode & 0o022)
-    ):
-        raise PluginError("trusted publisher key is missing or unsafe")
-    signature = base64.b64decode(manifest.signature, validate=True)
-    with tempfile.TemporaryDirectory() as temporary:
-        payload_path = Path(temporary) / "manifest.bin"
-        signature_path = Path(temporary) / "manifest.sig"
-        payload_path.write_bytes(manifest.signed_payload())
-        signature_path.write_bytes(signature)
-        guard = _hold_windows_key_acl(public_key) if os.name == "nt" else nullcontext()
-        with guard:
-            result = subprocess.run(
-                [
-                    executable,
-                    "pkeyutl",
-                    "-verify",
-                    "-pubin",
-                    "-inkey",
-                    str(public_key),
-                    "-rawin",
-                    "-in",
-                    str(payload_path),
-                    "-sigfile",
-                    str(signature_path),
-                ],
-                capture_output=True,
-                timeout=10,
-                check=False,
+    with (
+        _hold_windows_key_acl(root, directory=True)
+        if os.name == "nt"
+        else nullcontext()
+    ) as keyring_handle:
+        public_key = root / f"{manifest.publisher_key_id}.pem"
+        if (
+            public_key.is_symlink()
+            or not public_key.is_file()
+            or public_key.stat().st_size > 65_536
+            or (os.name != "nt" and public_key.stat().st_mode & 0o022)
+        ):
+            raise PluginError("trusted publisher key is missing or unsafe")
+        signature = base64.b64decode(manifest.signature, validate=True)
+        with tempfile.TemporaryDirectory() as temporary:
+            payload_path = Path(temporary) / "manifest.bin"
+            signature_path = Path(temporary) / "manifest.sig"
+            payload_path.write_bytes(manifest.signed_payload())
+            signature_path.write_bytes(signature)
+            guard = (
+                _hold_windows_key_acl(public_key) if os.name == "nt" else nullcontext()
             )
+            with guard:
+                if os.name == "nt":
+                    with _hold_windows_key_acl(
+                        root, directory=True
+                    ) as current_keyring_handle:
+                        if _windows_handle_identity(
+                            current_keyring_handle
+                        ) != _windows_handle_identity(keyring_handle):
+                            raise PluginError(
+                                "publisher keyring changed during verification"
+                            )
+                result = subprocess.run(
+                    [
+                        executable,
+                        "pkeyutl",
+                        "-verify",
+                        "-pubin",
+                        "-inkey",
+                        str(public_key),
+                        "-rawin",
+                        "-in",
+                        str(payload_path),
+                        "-sigfile",
+                        str(signature_path),
+                    ],
+                    capture_output=True,
+                    timeout=10,
+                    check=False,
+                )
     if result.returncode != 0:
         raise PluginError("plugin manifest signature verification failed")
 

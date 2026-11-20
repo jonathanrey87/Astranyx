@@ -1,8 +1,10 @@
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -43,19 +45,34 @@ def write_plugin(tmp_path, **overrides):
 
 
 def write_keys(tmp_path, key_id="publisher"):
+    openssl = shutil.which("openssl")
+    if openssl is None and os.name == "nt":
+        git = shutil.which("git")
+        if git is not None:
+            bundled_openssl = Path(git).resolve().parent.parent / "usr/bin/openssl.exe"
+            if bundled_openssl.is_file():
+                openssl = str(bundled_openssl)
+                os.environ["PATH"] = (
+                    str(bundled_openssl.parent)
+                    + os.pathsep
+                    + os.environ.get("PATH", "")
+                )
+    if openssl is None:
+        pytest.fail("OpenSSL is required to generate plugin signing test keys")
+
     private = tmp_path / "private.pem"
     keyring = tmp_path / "keyring"
     keyring.mkdir(parents=True)
     os.chmod(keyring, 0o700)
     public = keyring / f"{key_id}.pem"
     subprocess.run(
-        ["openssl", "genpkey", "-algorithm", "ED25519", "-out", str(private)],
+        [openssl, "genpkey", "-algorithm", "ED25519", "-out", str(private)],
         check=True,
         capture_output=True,
     )
     os.chmod(private, 0o600)
     subprocess.run(
-        ["openssl", "pkey", "-in", str(private), "-pubout", "-out", str(public)],
+        [openssl, "pkey", "-in", str(private), "-pubout", "-out", str(public)],
         check=True,
         capture_output=True,
     )
@@ -253,4 +270,104 @@ def test_windows_signing_resists_key_path_replacement(tmp_path, monkeypatch):
     assert replacement_attempts, "test did not reach the signing subprocess"
     # Secure implementations must either block replacement while signing or
     # sign from a protected snapshot of the originally validated key bytes.
+    verify_signature(signed, original_keyring)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows keyring substitution test")
+def test_windows_rejects_keyring_swapped_after_acl_check(tmp_path, monkeypatch):
+    import importlib
+
+    isolation = importlib.import_module("astranyx.plugin_runtime.isolation")
+    plugin = write_plugin(tmp_path)
+    _, trusted_keyring = write_keys(tmp_path / "trusted")
+    attacker_private, attacker_keyring = write_keys(tmp_path / "attacker")
+    manifest = sign_manifest(plugin, attacker_private, "publisher")
+    with pytest.raises(PluginError):
+        verify_signature(manifest, trusted_keyring)
+
+    from contextlib import contextmanager
+
+    original_hold = isolation._hold_windows_key_acl
+    attempts = []
+
+    @contextmanager
+    def attempt_swap_while_held(path, *, directory=False):
+        with original_hold(path, directory=directory) as handle:
+            if directory and path == trusted_keyring:
+                try:
+                    os.rename(
+                        trusted_keyring, trusted_keyring.with_name("keyring.saved")
+                    )
+                except OSError:
+                    attempts.append("blocked")
+                else:
+                    attempts.append("replaced")
+                    os.rename(attacker_keyring, trusted_keyring)
+            yield handle
+
+    monkeypatch.setattr(isolation, "_hold_windows_key_acl", attempt_swap_while_held)
+    with pytest.raises(PluginError):
+        verify_signature(manifest, trusted_keyring)
+    assert attempts, "keyring substitution was not attempted"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows post-validation keyring swap")
+def test_windows_verification_uses_validated_key_after_directory_swap(
+    tmp_path, monkeypatch
+):
+    import importlib
+
+    isolation = importlib.import_module("astranyx.plugin_runtime.isolation")
+    plugin = write_plugin(tmp_path)
+    _, trusted_keyring = write_keys(tmp_path / "trusted")
+    attacker_private, attacker_keyring = write_keys(tmp_path / "attacker")
+    manifest = sign_manifest(plugin, attacker_private, "publisher")
+    real_run = subprocess.run
+    attempts = []
+
+    def swap_keyring_before_openssl(args, *positional, **keywords):
+        if "pkeyutl" in args and "-verify" in args:
+            try:
+                os.rename(trusted_keyring, trusted_keyring.with_name("keyring.saved"))
+            except PermissionError:
+                attempts.append("blocked")
+            else:
+                attempts.append("replaced")
+                os.rename(attacker_keyring, trusted_keyring)
+        return real_run(args, *positional, **keywords)
+
+    monkeypatch.setattr(isolation.subprocess, "run", swap_keyring_before_openssl)
+    with pytest.raises(PluginError, match="verification failed"):
+        verify_signature(manifest, trusted_keyring)
+    assert attempts == ["blocked"]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows post-validation signing-key swap")
+def test_windows_signing_uses_validated_key_after_directory_swap(tmp_path, monkeypatch):
+    import importlib
+
+    isolation = importlib.import_module("astranyx.plugin_runtime.isolation")
+    plugin = write_plugin(tmp_path)
+    original_root = tmp_path / "original"
+    original_private, original_keyring = write_keys(original_root)
+    attacker_root = tmp_path / "attacker"
+    write_keys(attacker_root)
+    saved_root = tmp_path / "original.saved"
+    real_run = subprocess.run
+    attempts = []
+
+    def swap_key_directory_before_openssl(args, *positional, **keywords):
+        if "pkeyutl" in args and "-sign" in args:
+            try:
+                os.rename(original_root, saved_root)
+            except PermissionError:
+                attempts.append("blocked")
+            else:
+                attempts.append("replaced")
+                os.rename(attacker_root, original_root)
+        return real_run(args, *positional, **keywords)
+
+    monkeypatch.setattr(isolation.subprocess, "run", swap_key_directory_before_openssl)
+    signed = sign_manifest(plugin, original_private, "publisher")
+    assert attempts == ["blocked"]
     verify_signature(signed, original_keyring)
