@@ -99,8 +99,10 @@ def test_extract_ipa_rejects_unsafe_paths(tmp_path, monkeypatch, member_name):
         normalized = member_name.replace(chr(92), "/").encode("utf-8")
         original = member_name.encode("utf-8")
         assert len(normalized) == len(original)
-        assert data.count(normalized) == 2
-        archive.write_bytes(data.replace(normalized, original))
+        if data.count(normalized) == 2:
+            archive.write_bytes(data.replace(normalized, original))
+        else:
+            assert data.count(original) == 2
     monkeypatch.setattr(ipa.tempfile, "mkdtemp", lambda **_kwargs: str(extraction_root))
 
     with pytest.raises(ValueError, match="unsafe path"):
