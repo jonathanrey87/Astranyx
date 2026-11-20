@@ -172,7 +172,10 @@ def read_windows(root: Path, relative: str, limit: int) -> bytes:
     # Common input validation occurs in safe_reader.read_bounded before calling us.
     from astranyx.evidence.safe_reader import SizeLimitExceeded
 
-    trusted_root = root.expanduser().resolve(strict=True)
+    expanded_root = root.expanduser()
+    if expanded_root.is_junction() or expanded_root.is_symlink():
+        raise OSError("evidence root must not be a reparse point")
+    trusted_root = expanded_root.resolve(strict=True)
     if not trusted_root.is_dir():
         raise OSError("evidence root is not a directory")
     path = str(trusted_root)
