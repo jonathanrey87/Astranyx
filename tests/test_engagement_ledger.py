@@ -220,3 +220,57 @@ def test_lock_descriptor_closed_when_permission_enforcement_fails(
     with pytest.raises(OSError) as exc:
         os.fstat(captured["descriptor"])
     assert exc.value.errno == errno.EBADF
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows byte-range lock ordering")
+def test_windows_lock_serializes_permission_enforcement(tmp_path, monkeypatch):
+    import importlib
+    import msvcrt
+
+    module = importlib.import_module("astranyx.engagement.ledger")
+    ledger = module.AuditLedger(tmp_path / "audit.jsonl", "eng-1")
+    real_locking = msvcrt.locking
+    events = []
+
+    def record_locking(descriptor, mode, count):
+        events.append("unlock" if mode == msvcrt.LK_UNLCK else "lock")
+        return real_locking(descriptor, mode, count)
+
+    def record_permissions(descriptor, path):
+        events.append("permissions")
+
+    monkeypatch.setattr(msvcrt, "locking", record_locking)
+    monkeypatch.setattr(module, "_secure_file_mode", record_permissions)
+    with ledger._exclusive_lock():
+        events.append("body")
+
+    assert events == ["lock", "permissions", "body", "unlock"]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows unlock cleanup")
+def test_windows_lock_descriptor_closed_when_unlock_fails(tmp_path, monkeypatch):
+    import errno
+    import importlib
+    import msvcrt
+
+    module = importlib.import_module("astranyx.engagement.ledger")
+    ledger = module.AuditLedger(tmp_path / "audit.jsonl", "eng-1")
+    real_locking = msvcrt.locking
+    captured = {}
+
+    def fail_unlock(descriptor, mode, count):
+        captured["descriptor"] = descriptor
+        if mode == msvcrt.LK_UNLCK:
+            raise OSError(errno.EACCES, "simulated unlock failure")
+        return real_locking(descriptor, mode, count)
+
+    monkeypatch.setattr(msvcrt, "locking", fail_unlock)
+    with (
+        pytest.raises(OSError, match="simulated unlock failure"),
+        ledger._exclusive_lock(),
+    ):
+        pass
+
+    with pytest.raises(OSError) as exc:
+        os.fstat(captured["descriptor"])
+    assert exc.value.errno == errno.EBADF
