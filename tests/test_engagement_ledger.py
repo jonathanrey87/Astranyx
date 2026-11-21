@@ -239,12 +239,35 @@ def test_windows_lock_serializes_permission_enforcement(tmp_path, monkeypatch):
     def record_permissions(descriptor, path):
         events.append("permissions")
 
+    def record_validation(descriptor, path):
+        events.append("validation")
+
     monkeypatch.setattr(msvcrt, "locking", record_locking)
+    monkeypatch.setattr(module, "_validate_windows_file", record_validation)
     monkeypatch.setattr(module, "_secure_file_mode", record_permissions)
     with ledger._exclusive_lock():
         events.append("body")
 
-    assert events == ["lock", "permissions", "body", "unlock"]
+    assert events == ["validation", "lock", "permissions", "body", "unlock"]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows lock symlink regression")
+@pytest.mark.parametrize("initial", [b"", b"unrelated-content"])
+def test_windows_rejected_lock_symlink_does_not_modify_target(tmp_path, initial):
+    path = tmp_path / "audit.jsonl"
+    ledger = AuditLedger(path, "eng-1")
+    ledger._lock_path.unlink()
+    target = tmp_path / "unrelated.bin"
+    target.write_bytes(initial)
+    ledger._lock_path.symlink_to(target)
+
+    with (
+        pytest.raises(LedgerError, match="symlink|reparse"),
+        ledger._exclusive_lock(),
+    ):
+        pytest.fail("Symlinked lock unexpectedly acquired")
+
+    assert target.read_bytes() == initial
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows unlock cleanup")
