@@ -252,11 +252,7 @@ class AuditLedger:
         if hasattr(os, "O_NOFOLLOW"):
             flags |= os.O_NOFOLLOW
         descriptor = os.open(self._lock_path, flags, 0o600)
-        try:
-            _secure_file_mode(descriptor, self._lock_path)
-        except BaseException:
-            os.close(descriptor)
-            raise
+        locked = False
         try:
             if os.name == "nt":
                 import msvcrt
@@ -265,22 +261,31 @@ class AuditLedger:
                     os.write(descriptor, b"\0")
                 os.lseek(descriptor, 0, os.SEEK_SET)
                 msvcrt.locking(descriptor, msvcrt.LK_LOCK, 1)
+                locked = True
+                # SetSecurityInfo on the shared lock file must not race with
+                # another process doing the same work before serialization.
+                _secure_file_mode(descriptor, self._lock_path)
             else:
                 import fcntl
 
+                _secure_file_mode(descriptor, self._lock_path)
                 fcntl.flock(descriptor, fcntl.LOCK_EX)
+                locked = True
             yield
         finally:
-            if os.name == "nt":
-                import msvcrt
+            try:
+                if locked:
+                    if os.name == "nt":
+                        import msvcrt
 
-                os.lseek(descriptor, 0, os.SEEK_SET)
-                msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
-            else:
-                import fcntl
+                        os.lseek(descriptor, 0, os.SEEK_SET)
+                        msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
+                    else:
+                        import fcntl
 
-                fcntl.flock(descriptor, fcntl.LOCK_UN)
-            os.close(descriptor)
+                        fcntl.flock(descriptor, fcntl.LOCK_UN)
+            finally:
+                os.close(descriptor)
 
     def _read_locked(self) -> str:
         if not self.path.exists():
