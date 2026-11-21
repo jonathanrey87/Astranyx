@@ -208,6 +208,62 @@ def _secure_windows_file(descriptor: int, path: Path) -> None:
         raise LedgerError("Windows ledger ACL enforcement failed") from exc
 
 
+def _validate_windows_file(descriptor: int, path: Path) -> None:
+    """Validate a Windows file through read-only, identity-checked handles."""
+    import msvcrt
+
+    try:
+        import win32api
+        import win32con
+        import win32file
+        import win32security
+
+        original = msvcrt.get_osfhandle(descriptor)
+        original_info = win32file.GetFileInformationByHandle(original)
+        if original_info[0] & 0x400:  # FILE_ATTRIBUTE_REPARSE_POINT
+            raise LedgerError("Windows ledger reparse point is forbidden")
+        if path.is_symlink():
+            raise LedgerError("Windows ledger symlink is forbidden")
+
+        token = win32security.OpenProcessToken(
+            win32api.GetCurrentProcess(), win32con.TOKEN_QUERY
+        )
+        user_sid = win32security.GetTokenInformation(token, win32security.TokenUser)[0]
+        admin_sid = win32security.ConvertStringSidToSid("S-1-5-32-544")
+        sharing = (
+            win32con.FILE_SHARE_READ
+            | win32con.FILE_SHARE_WRITE
+            | win32con.FILE_SHARE_DELETE
+        )
+        native = win32file.CreateFile(
+            str(path),
+            win32con.READ_CONTROL,
+            sharing,
+            None,
+            win32con.OPEN_EXISTING,
+            0x00200000,
+            None,  # FILE_FLAG_OPEN_REPARSE_POINT
+        )
+        try:
+            actual = win32file.GetFileInformationByHandle(native)
+            # Volume serial and file index are identity fields on Windows.
+            identity = lambda info: (info[4], info[8], info[9])
+            if (actual[0] & 0x400) or identity(actual) != identity(original_info):
+                raise LedgerError("Windows ledger file changed or is a reparse point")
+            current = win32security.GetSecurityInfo(
+                native,
+                win32security.SE_FILE_OBJECT,
+                win32security.OWNER_SECURITY_INFORMATION,
+            )
+            owner = current.GetSecurityDescriptorOwner()
+            if owner not in (user_sid, admin_sid):
+                raise LedgerError("Windows ledger file owner is unsafe")
+        finally:
+            native.Close()
+    except (ImportError, OSError) as exc:
+        raise LedgerError("Windows ledger file validation failed") from exc
+
+
 def _secure_file_mode(descriptor: int, path: Path) -> None:
     if os.name == "nt":
         _secure_windows_file(descriptor, path)
@@ -257,6 +313,7 @@ class AuditLedger:
             if os.name == "nt":
                 import msvcrt
 
+                _validate_windows_file(descriptor, self._lock_path)
                 if os.fstat(descriptor).st_size == 0:
                     os.write(descriptor, b"\0")
                 os.lseek(descriptor, 0, os.SEEK_SET)
