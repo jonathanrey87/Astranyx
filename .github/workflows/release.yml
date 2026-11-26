@@ -6,37 +6,134 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag to build and upload
+        description: Existing release tag to validate (no publication)
         required: true
         type: string
 
-permissions:
-  contents: write
-  id-token: write
-  attestations: write
+permissions: {}
 
 concurrency:
   group: release-${{ github.event.release.tag_name || inputs.tag }}
   cancel-in-progress: false
 
 jobs:
-  build-and-publish:
-    name: Build, attest, and upload
+  build:
+    name: Build and validate
     runs-on: ubuntu-latest
-    environment: pypi
+    permissions:
+      contents: read
+      actions: read
     env:
       RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
 
     steps:
       - name: Checkout release tag
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          ref: refs/tags/${{ env.RELEASE_TAG }}
+          ref: ${{ github.event_name == 'release' && github.sha || format('refs/tags/{0}', inputs.tag) }}
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Verify release commit binding
+        run: |
+          set -euo pipefail
+
+          git check-ref-format "refs/tags/$RELEASE_TAG"
+
+          actual="$(git rev-parse HEAD)"
+          tagged="$(git rev-parse --verify "refs/tags/$RELEASE_TAG^{commit}")"
+
+          test "$actual" = "$tagged"
+
+          if [ "$GITHUB_EVENT_NAME" = "release" ]; then
+            test "$actual" = "$GITHUB_SHA"
+          fi
+
+          git merge-base --is-ancestor "$actual" origin/main
+
+          echo "Verified release tag: $RELEASE_TAG"
+          echo "Verified release commit: $actual"
+
+      - name: Require successful release CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY_GATE'
+          import json
+          import os
+          import subprocess
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          sha = subprocess.check_output(
+              ["git", "rev-parse", "HEAD"], text=True
+          ).strip()
+
+          expected = {
+              "test (3.11)",
+              "test (3.12)",
+              "test (3.13)",
+              "test (3.14)",
+              "Windows integrity baseline (3.13)",
+              "Windows integrity baseline (3.14)",
+              "Windows full test suite (3.14)",
+              "Build and validate release artifacts (3.13)",
+              "Build and validate release artifacts (3.14)",
+          }
+
+          def api(endpoint):
+              return json.loads(subprocess.check_output(
+                  ["gh", "api", endpoint], text=True
+              ))
+
+          endpoint = (
+              f"repos/{repo}/actions/workflows/ci.yml/runs"
+              f"?head_sha={sha}&branch=main&event=push"
+              "&per_page=100"
+          )
+
+          runs = api(endpoint)["workflow_runs"]
+
+          if not runs:
+              raise SystemExit("No matching main-branch CI run")
+
+          run = max(runs, key=lambda item: item["id"])
+
+          if (
+              run["head_sha"] != sha
+              or run["head_branch"] != "main"
+              or run["event"] != "push"
+              or run["status"] != "completed"
+              or run["conclusion"] != "success"
+          ):
+              raise SystemExit("Release CI gate failed")
+
+          run_id = run["id"]
+          attempt = run["run_attempt"]
+
+          jobs = api(
+              f"repos/{repo}/actions/runs/{run_id}"
+              f"/attempts/{attempt}/jobs?per_page=100"
+          )["jobs"]
+
+          names = [job["name"] for job in jobs]
+
+          if len(names) != len(expected) or set(names) != expected:
+              raise SystemExit("Required CI job inventory mismatch")
+
+          if any(
+              job["status"] != "completed"
+              or job["conclusion"] != "success"
+              for job in jobs
+          ):
+              raise SystemExit("Required CI job failed")
+
+          print(f"Release commit: {sha}")
+          print(f"Verified CI run: {run_id}")
+          print("Release CI gate passed: 9/9 jobs")
+          PY_GATE
+
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.13"
 
@@ -83,29 +180,776 @@ jobs:
           test "$actual" = "$expected"
           echo "Validated CLI version: $actual"
 
-      - name: Publish package distributions to PyPI
-        if: github.event_name == 'release'
-        uses: pypa/gh-action-pypi-publish@release/v1
-
       - name: Generate SHA-256 checksums
         working-directory: dist
-        run: sha256sum *.whl *.tar.gz > SHA256SUMS
+        run: sha256sum -- *.whl *.tar.gz > SHA256SUMS
 
-      - name: Generate signed build provenance
-        uses: actions/attest@v4
+      - name: Retain validated distributions
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          subject-path: "dist/*"
-
-      - name: Retain workflow artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: astranyx-${{ env.RELEASE_TAG }}
+          name: validated-distributions
           path: dist/
           if-no-files-found: error
           retention-days: 90
 
+  attest:
+    name: Attest validated distributions
+    needs: build
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+
+    steps:
+      - name: Download validated distributions
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: validated-distributions
+          path: dist/
+
+      - name: Verify artifact integrity
+        working-directory: dist
+        run: |
+          python3 - <<'PY_VERIFY'
+          import hashlib
+          import re
+          from pathlib import Path
+
+          files = list(Path(".").iterdir())
+
+          if any(p.is_symlink() or not p.is_file() for p in files):
+              raise SystemExit("Unsafe artifact entry")
+
+          wheels = [p for p in files if p.name.endswith(".whl")]
+          sdists = [p for p in files if p.name.endswith(".tar.gz")]
+          manifest = Path("SHA256SUMS")
+
+          if (
+              len(files) != 3
+              or len(wheels) != 1
+              or len(sdists) != 1
+              or not manifest.is_file()
+          ):
+              raise SystemExit("Unexpected artifact inventory")
+
+          expected = {wheels[0].name, sdists[0].name}
+          checksums = {}
+
+          for line in manifest.read_text(
+              encoding="utf-8"
+          ).splitlines():
+              match = re.fullmatch(
+                  r"([0-9a-f]{64})  ([A-Za-z0-9_.+-]+)",
+                  line,
+              )
+
+              if not match:
+                  raise SystemExit("Invalid checksum entry")
+
+              digest, name = match.groups()
+
+              if name not in expected or name in checksums:
+                  raise SystemExit("Unexpected checksum entry")
+
+              checksums[name] = digest
+
+          if set(checksums) != expected:
+              raise SystemExit("Incomplete checksum manifest")
+
+          for name, expected_digest in checksums.items():
+              with Path(name).open("rb") as stream:
+                  actual = hashlib.file_digest(
+                      stream, "sha256"
+                  ).hexdigest()
+
+              if actual != expected_digest:
+                  raise SystemExit(f"Checksum mismatch: {name}")
+
+              print(f"Verified: {name}")
+
+          print("Artifact inventory and integrity verified")
+          PY_VERIFY
+
+      - name: Generate signed build provenance
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-path: "dist/*"
+
+  preflight:
+    name: Verify publication prerequisites
+    needs: attest
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      RELEASE_ID: ${{ github.event.release.id }}
+
+    steps:
+      - name: Verify registry availability and release identity
+        run: |
+          python3 - <<'PY_PREFLIGHT'
+          import json
+          import os
+          import re
+          import subprocess
+          import urllib.error
+          import urllib.request
+          from urllib.parse import quote
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          tag = os.environ["RELEASE_TAG"]
+          sha = os.environ["GITHUB_SHA"]
+
+          if not re.fullmatch(
+              r"v[0-9]+[.][0-9]+[.][0-9]+(?:a[0-9]+|b[0-9]+|rc[0-9]+)?",
+              tag,
+          ):
+              raise SystemExit("Unsupported release tag format")
+
+          def api(endpoint):
+              return json.loads(subprocess.check_output(
+                  ["gh", "api", endpoint], text=True
+              ))
+
+          ref = api(f"repos/{repo}/git/ref/tags/{tag}")
+          target = ref["object"]
+
+          for _ in range(8):
+              if target["type"] != "tag":
+                  break
+              target = api(
+                  f"repos/{repo}/git/tags/{target['sha']}"
+              )["object"]
+
+          if (
+              target["type"] != "commit"
+              or target["sha"] != sha
+          ):
+              raise SystemExit("Remote release tag mismatch")
+
+          release = api(
+              f"repos/{repo}/releases/tags/{tag}"
+          )
+
+          if (
+              str(release["id"]) != os.environ["RELEASE_ID"]
+              or release["tag_name"] != tag
+              or release["draft"]
+          ):
+              raise SystemExit("Release identity mismatch")
+
+          if release["immutable"]:
+              raise SystemExit("Release is already immutable")
+
+          if release["assets"]:
+              raise SystemExit("Release already contains assets")
+
+          version = quote(tag[1:], safe="")
+          url = (
+              "https://pypi.org/pypi/"
+              f"astranyx-engine/{version}/json"
+          )
+
+          class RejectRedirects(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, *args, **kwargs):
+                  raise SystemExit("Unexpected registry redirect")
+
+          opener = urllib.request.build_opener(RejectRedirects())
+
+          try:
+              with opener.open(url, timeout=30):
+                  raise SystemExit("PyPI version already exists")
+          except urllib.error.HTTPError as exc:
+              if exc.code != 404:
+                  raise SystemExit(
+                      f"Unexpected PyPI response: {exc.code}"
+                  ) from exc
+
+          print(f"Verified remote release commit: {sha}")
+          print("GitHub release asset inventory is empty")
+          print("PyPI version is not published")
+          print("Publication preflight passed")
+          PY_PREFLIGHT
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: preflight
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+      attestations: read
+
+    steps:
+      - name: Download validated distributions
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: validated-distributions
+          path: dist/
+
+      - name: Verify artifact integrity
+        working-directory: dist
+        run: |
+          python3 - <<'PY_VERIFY'
+          import hashlib
+          import re
+          from pathlib import Path
+
+          files = list(Path(".").iterdir())
+
+          if any(p.is_symlink() or not p.is_file() for p in files):
+              raise SystemExit("Unsafe artifact entry")
+
+          wheels = [p for p in files if p.name.endswith(".whl")]
+          sdists = [p for p in files if p.name.endswith(".tar.gz")]
+          manifest = Path("SHA256SUMS")
+
+          if (
+              len(files) != 3
+              or len(wheels) != 1
+              or len(sdists) != 1
+              or not manifest.is_file()
+          ):
+              raise SystemExit("Unexpected artifact inventory")
+
+          expected = {wheels[0].name, sdists[0].name}
+          checksums = {}
+
+          for line in manifest.read_text(
+              encoding="utf-8"
+          ).splitlines():
+              match = re.fullmatch(
+                  r"([0-9a-f]{64})  ([A-Za-z0-9_.+-]+)",
+                  line,
+              )
+
+              if not match:
+                  raise SystemExit("Invalid checksum entry")
+
+              digest, name = match.groups()
+
+              if name not in expected or name in checksums:
+                  raise SystemExit("Unexpected checksum entry")
+
+              checksums[name] = digest
+
+          if set(checksums) != expected:
+              raise SystemExit("Incomplete checksum manifest")
+
+          for name, expected_digest in checksums.items():
+              with Path(name).open("rb") as stream:
+                  actual = hashlib.file_digest(
+                      stream, "sha256"
+                  ).hexdigest()
+
+              if actual != expected_digest:
+                  raise SystemExit(f"Checksum mismatch: {name}")
+
+              print(f"Verified: {name}")
+
+          print("Artifact inventory and integrity verified")
+          PY_VERIFY
+
+      - name: Verify cryptographic build provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+
+          for artifact in dist/*.whl dist/*.tar.gz dist/SHA256SUMS; do
+            gh attestation verify "$artifact" \
+              --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+              --source-digest "$GITHUB_SHA" \
+              --source-ref "refs/tags/$RELEASE_TAG" \
+              --deny-self-hosted-runners \
+              --predicate-type https://slsa.dev/provenance/v1
+          done
+
+      - name: Prepare PyPI distributions
+        run: |
+          mkdir packages
+          cp -- dist/*.whl dist/*.tar.gz packages/
+
+      - name: Revalidate publication prerequisites
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_ID: ${{ github.event.release.id }}
+          PUBLICATION_STAGE: before-pypi
+        run: |
+          python3 - <<'PY_PREFLIGHT'
+          import hashlib
+          import json
+          from pathlib import Path
+          import os
+          import re
+          import subprocess
+          import urllib.error
+          import urllib.request
+          from urllib.parse import quote
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          tag = os.environ["RELEASE_TAG"]
+          sha = os.environ["GITHUB_SHA"]
+
+          if not re.fullmatch(
+              r"v[0-9]+[.][0-9]+[.][0-9]+(?:a[0-9]+|b[0-9]+|rc[0-9]+)?",
+              tag,
+          ):
+              raise SystemExit("Unsupported release tag format")
+
+          def api(endpoint):
+              return json.loads(subprocess.check_output(
+                  ["gh", "api", endpoint], text=True
+              ))
+
+          ref = api(f"repos/{repo}/git/ref/tags/{tag}")
+          target = ref["object"]
+
+          for _ in range(8):
+              if target["type"] != "tag":
+                  break
+              target = api(
+                  f"repos/{repo}/git/tags/{target['sha']}"
+              )["object"]
+
+          if (
+              target["type"] != "commit"
+              or target["sha"] != sha
+          ):
+              raise SystemExit("Remote release tag mismatch")
+
+          release = api(
+              f"repos/{repo}/releases/tags/{tag}"
+          )
+
+          if (
+              str(release["id"]) != os.environ["RELEASE_ID"]
+              or release["tag_name"] != tag
+              or release["draft"]
+          ):
+              raise SystemExit("Release identity mismatch")
+
+          if release["immutable"]:
+              raise SystemExit("Release is already immutable")
+
+          if release["assets"]:
+              raise SystemExit("Release already contains assets")
+
+          version = quote(tag[1:], safe="")
+          url = (
+              "https://pypi.org/pypi/"
+              f"astranyx-engine/{version}/json"
+          )
+
+          stage = os.environ["PUBLICATION_STAGE"]
+
+          if stage not in {"before-pypi", "before-github"}:
+              raise SystemExit("Invalid publication stage")
+
+          class RejectRedirects(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, *args, **kwargs):
+                  raise SystemExit("Unexpected registry redirect")
+
+          opener = urllib.request.build_opener(RejectRedirects())
+
+          try:
+              with opener.open(url, timeout=30) as response:
+                  if response.status != 200:
+                      raise SystemExit("Unexpected registry status")
+                  if stage == "before-pypi":
+                      raise SystemExit("PyPI version already exists")
+                  metadata = json.load(response)
+          except urllib.error.HTTPError as exc:
+              if exc.code != 404 or stage != "before-pypi":
+                  raise SystemExit(
+                      f"Unexpected PyPI response: {exc.code}"
+                  ) from exc
+              metadata = None
+
+          if stage == "before-pypi":
+              if metadata is not None:
+                  raise SystemExit("PyPI version already exists")
+
+              source = Path("dist")
+              destination = Path("packages")
+
+              if source.is_symlink() or destination.is_symlink():
+                  raise SystemExit("Unsafe distribution directory")
+
+              originals = [
+                  p for p in source.iterdir()
+                  if p.name != "SHA256SUMS"
+              ]
+              copies = list(destination.iterdir())
+
+              if any(
+                  p.is_symlink() or not p.is_file()
+                  for p in originals + copies
+              ):
+                  raise SystemExit("Unsafe distribution entry")
+
+              expected_names = {p.name for p in originals}
+
+              if (
+                  len(originals) != 2
+                  or sum(p.name.endswith(".whl") for p in originals) != 1
+                  or sum(p.name.endswith(".tar.gz") for p in originals) != 1
+                  or {p.name for p in copies} != expected_names
+              ):
+                  raise SystemExit("Copied package inventory mismatch")
+
+              for original in originals:
+                  with original.open("rb") as stream:
+                      expected_digest = hashlib.file_digest(
+                          stream, "sha256"
+                      ).hexdigest()
+
+                  with (destination / original.name).open("rb") as stream:
+                      actual_digest = hashlib.file_digest(
+                          stream, "sha256"
+                      ).hexdigest()
+
+                  if actual_digest != expected_digest:
+                      raise SystemExit("Copied package digest mismatch")
+          else:
+              if metadata is None:
+                  raise SystemExit("Published PyPI version missing")
+
+              info = metadata["info"]
+
+              if (
+                  re.sub(r"[-_.]+", "-", info["name"]).lower()
+                  != "astranyx-engine"
+                  or info["version"] != tag[1:]
+              ):
+                  raise SystemExit("PyPI package identity mismatch")
+
+              expected = {}
+
+              for artifact in Path("dist").iterdir():
+                  if artifact.name == "SHA256SUMS":
+                      continue
+                  with artifact.open("rb") as stream:
+                      expected[artifact.name] = hashlib.file_digest(
+                          stream, "sha256"
+                      ).hexdigest()
+
+              observed = {}
+
+              for artifact in metadata["urls"]:
+                  name = artifact["filename"]
+
+                  if name in observed or artifact["yanked"]:
+                      raise SystemExit("Unexpected PyPI artifact")
+
+                  observed[name] = artifact["digests"]["sha256"]
+
+              if observed != expected:
+                  raise SystemExit("PyPI artifact inventory mismatch")
+
+          print(f"Verified release commit: {sha}")
+          print(f"Publication guard passed: {stage}")
+          PY_PREFLIGHT
+
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # release/v1
+        with:
+          packages-dir: packages/
+
+  publish-github:
+    name: Publish GitHub release assets
+    needs: publish-pypi
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      attestations: read
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+
+    steps:
+      - name: Download validated distributions
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: validated-distributions
+          path: dist/
+
+      - name: Verify artifact integrity
+        working-directory: dist
+        run: |
+          python3 - <<'PY_VERIFY'
+          import hashlib
+          import re
+          from pathlib import Path
+
+          files = list(Path(".").iterdir())
+
+          if any(p.is_symlink() or not p.is_file() for p in files):
+              raise SystemExit("Unsafe artifact entry")
+
+          wheels = [p for p in files if p.name.endswith(".whl")]
+          sdists = [p for p in files if p.name.endswith(".tar.gz")]
+          manifest = Path("SHA256SUMS")
+
+          if (
+              len(files) != 3
+              or len(wheels) != 1
+              or len(sdists) != 1
+              or not manifest.is_file()
+          ):
+              raise SystemExit("Unexpected artifact inventory")
+
+          expected = {wheels[0].name, sdists[0].name}
+          checksums = {}
+
+          for line in manifest.read_text(
+              encoding="utf-8"
+          ).splitlines():
+              match = re.fullmatch(
+                  r"([0-9a-f]{64})  ([A-Za-z0-9_.+-]+)",
+                  line,
+              )
+
+              if not match:
+                  raise SystemExit("Invalid checksum entry")
+
+              digest, name = match.groups()
+
+              if name not in expected or name in checksums:
+                  raise SystemExit("Unexpected checksum entry")
+
+              checksums[name] = digest
+
+          if set(checksums) != expected:
+              raise SystemExit("Incomplete checksum manifest")
+
+          for name, expected_digest in checksums.items():
+              with Path(name).open("rb") as stream:
+                  actual = hashlib.file_digest(
+                      stream, "sha256"
+                  ).hexdigest()
+
+              if actual != expected_digest:
+                  raise SystemExit(f"Checksum mismatch: {name}")
+
+              print(f"Verified: {name}")
+
+          print("Artifact inventory and integrity verified")
+          PY_VERIFY
+
+      - name: Verify cryptographic build provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+
+          for artifact in dist/*.whl dist/*.tar.gz dist/SHA256SUMS; do
+            gh attestation verify "$artifact" \
+              --repo "$GITHUB_REPOSITORY" \
+              --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/release.yml" \
+              --source-digest "$GITHUB_SHA" \
+              --source-ref "refs/tags/$RELEASE_TAG" \
+              --deny-self-hosted-runners \
+              --predicate-type https://slsa.dev/provenance/v1
+          done
+
+      - name: Revalidate publication prerequisites
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_ID: ${{ github.event.release.id }}
+          PUBLICATION_STAGE: before-github
+        run: |
+          python3 - <<'PY_PREFLIGHT'
+          import hashlib
+          import json
+          from pathlib import Path
+          import os
+          import re
+          import subprocess
+          import urllib.error
+          import urllib.request
+          from urllib.parse import quote
+
+          repo = os.environ["GITHUB_REPOSITORY"]
+          tag = os.environ["RELEASE_TAG"]
+          sha = os.environ["GITHUB_SHA"]
+
+          if not re.fullmatch(
+              r"v[0-9]+[.][0-9]+[.][0-9]+(?:a[0-9]+|b[0-9]+|rc[0-9]+)?",
+              tag,
+          ):
+              raise SystemExit("Unsupported release tag format")
+
+          def api(endpoint):
+              return json.loads(subprocess.check_output(
+                  ["gh", "api", endpoint], text=True
+              ))
+
+          ref = api(f"repos/{repo}/git/ref/tags/{tag}")
+          target = ref["object"]
+
+          for _ in range(8):
+              if target["type"] != "tag":
+                  break
+              target = api(
+                  f"repos/{repo}/git/tags/{target['sha']}"
+              )["object"]
+
+          if (
+              target["type"] != "commit"
+              or target["sha"] != sha
+          ):
+              raise SystemExit("Remote release tag mismatch")
+
+          release = api(
+              f"repos/{repo}/releases/tags/{tag}"
+          )
+
+          if (
+              str(release["id"]) != os.environ["RELEASE_ID"]
+              or release["tag_name"] != tag
+              or release["draft"]
+          ):
+              raise SystemExit("Release identity mismatch")
+
+          if release["immutable"]:
+              raise SystemExit("Release is already immutable")
+
+          if release["assets"]:
+              raise SystemExit("Release already contains assets")
+
+          version = quote(tag[1:], safe="")
+          url = (
+              "https://pypi.org/pypi/"
+              f"astranyx-engine/{version}/json"
+          )
+
+          stage = os.environ["PUBLICATION_STAGE"]
+
+          if stage not in {"before-pypi", "before-github"}:
+              raise SystemExit("Invalid publication stage")
+
+          class RejectRedirects(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, *args, **kwargs):
+                  raise SystemExit("Unexpected registry redirect")
+
+          opener = urllib.request.build_opener(RejectRedirects())
+
+          try:
+              with opener.open(url, timeout=30) as response:
+                  if response.status != 200:
+                      raise SystemExit("Unexpected registry status")
+                  if stage == "before-pypi":
+                      raise SystemExit("PyPI version already exists")
+                  metadata = json.load(response)
+          except urllib.error.HTTPError as exc:
+              if exc.code != 404 or stage != "before-pypi":
+                  raise SystemExit(
+                      f"Unexpected PyPI response: {exc.code}"
+                  ) from exc
+              metadata = None
+
+          if stage == "before-pypi":
+              if metadata is not None:
+                  raise SystemExit("PyPI version already exists")
+
+              source = Path("dist")
+              destination = Path("packages")
+
+              if source.is_symlink() or destination.is_symlink():
+                  raise SystemExit("Unsafe distribution directory")
+
+              originals = [
+                  p for p in source.iterdir()
+                  if p.name != "SHA256SUMS"
+              ]
+              copies = list(destination.iterdir())
+
+              if any(
+                  p.is_symlink() or not p.is_file()
+                  for p in originals + copies
+              ):
+                  raise SystemExit("Unsafe distribution entry")
+
+              expected_names = {p.name for p in originals}
+
+              if (
+                  len(originals) != 2
+                  or sum(p.name.endswith(".whl") for p in originals) != 1
+                  or sum(p.name.endswith(".tar.gz") for p in originals) != 1
+                  or {p.name for p in copies} != expected_names
+              ):
+                  raise SystemExit("Copied package inventory mismatch")
+
+              for original in originals:
+                  with original.open("rb") as stream:
+                      expected_digest = hashlib.file_digest(
+                          stream, "sha256"
+                      ).hexdigest()
+
+                  with (destination / original.name).open("rb") as stream:
+                      actual_digest = hashlib.file_digest(
+                          stream, "sha256"
+                      ).hexdigest()
+
+                  if actual_digest != expected_digest:
+                      raise SystemExit("Copied package digest mismatch")
+          else:
+              if metadata is None:
+                  raise SystemExit("Published PyPI version missing")
+
+              info = metadata["info"]
+
+              if (
+                  re.sub(r"[-_.]+", "-", info["name"]).lower()
+                  != "astranyx-engine"
+                  or info["version"] != tag[1:]
+              ):
+                  raise SystemExit("PyPI package identity mismatch")
+
+              expected = {}
+
+              for artifact in Path("dist").iterdir():
+                  if artifact.name == "SHA256SUMS":
+                      continue
+                  with artifact.open("rb") as stream:
+                      expected[artifact.name] = hashlib.file_digest(
+                          stream, "sha256"
+                      ).hexdigest()
+
+              observed = {}
+
+              for artifact in metadata["urls"]:
+                  name = artifact["filename"]
+
+                  if name in observed or artifact["yanked"]:
+                      raise SystemExit("Unexpected PyPI artifact")
+
+                  observed[name] = artifact["digests"]["sha256"]
+
+              if observed != expected:
+                  raise SystemExit("PyPI artifact inventory mismatch")
+
+          print(f"Verified release commit: {sha}")
+          print(f"Publication guard passed: {stage}")
+          PY_PREFLIGHT
 
       - name: Attach assets to GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$RELEASE_TAG" dist/* --clobber
+        run: |
+          gh release upload "$RELEASE_TAG" \
+            dist/*.whl dist/*.tar.gz dist/SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY"
