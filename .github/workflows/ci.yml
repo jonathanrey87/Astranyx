@@ -5,11 +5,15 @@ on:
     branches:
       - main
       - feature/**
+      - development/**
       - fix/windows-secure-reader
   pull_request:
     branches:
       - main
       - ci/windows-python314-baseline
+permissions:
+  contents: read
+
 jobs:
   test:
 
@@ -23,10 +27,12 @@ jobs:
     steps:
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -44,6 +50,18 @@ jobs:
           find astranyx tests -name '*.py' -type f -print0 \
             | xargs -0 -n 1 black --check --quiet
 
+      - name: Install locked Linux SBOM tooling
+        if: matrix.python-version == '3.14'
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: -r .github/requirements/sbom-linux-py314.lock
+
+      - name: Require Linux SBOM regression tests
+        if: matrix.python-version == '3.14'
+        run: |
+          python -c "import cyclonedx, packageurl, packaging"
+          python -m pytest tests/test_sbom.py -q --junitxml=sbom-results.xml
+          python -c "import xml.etree.ElementTree as E; import sys; s=E.parse('sbom-results.xml').findall('.//testsuite'); sys.exit(not s or sum(int(x.get('tests', '0')) for x in s) < 24 or any(int(x.get('skipped', '0')) for x in s))"
+
       - name: Tests
         run: |
           pytest -q
@@ -59,10 +77,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -91,15 +111,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install packaging tools
-        run: python -m pip install --upgrade build twine
+        run: python -m pip install build==1.5.0 twine==6.2.0
 
       - name: Build source distribution and wheel
         run: python -m build
@@ -122,10 +144,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
 
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.14"
 
@@ -133,6 +157,16 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev]"
+
+      - name: Install locked Windows SBOM tooling
+        run: |
+          python -m pip install --require-hashes --only-binary=:all: -r .github/requirements/sbom-windows-py314.lock
+
+      - name: Require Windows SBOM regression tests
+        run: |
+          python -c "import cyclonedx, packageurl, packaging"
+          python -m pytest tests/test_sbom.py -q --junitxml=sbom-results.xml
+          python -c "import xml.etree.ElementTree as E; import sys; s=E.parse('sbom-results.xml').findall('.//testsuite'); sys.exit(not s or sum(int(x.get('tests', '0')) for x in s) < 24 or any(int(x.get('skipped', '0')) for x in s))"
 
       - name: Run full pytest suite
         run: python -m pytest -q -ra

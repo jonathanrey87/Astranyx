@@ -1,0 +1,3 @@
+# Astranyx Windows runtime dependency
+# CPython 3.14 / Windows x86_64
+pywin32==312 --hash=sha256:a4dd3a848290ef724347b19f301045831d8e802fa4464f491b98b1e0a081432e

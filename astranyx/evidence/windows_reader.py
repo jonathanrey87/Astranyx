@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ctypes
 import os
+import re
 from ctypes import wintypes
 from pathlib import Path
 
@@ -172,13 +173,33 @@ def read_windows(root: Path, relative: str, limit: int) -> bytes:
     # Common input validation occurs in safe_reader.read_bounded before calling us.
     from astranyx.evidence.safe_reader import SizeLimitExceeded
 
+    if any(chr(58) in part or chr(0) in part for part in relative.split(chr(47))):
+        raise OSError("unsafe Windows evidence path component")
+
     path = str(root.expanduser().absolute())
     path = path.removeprefix("\\\\?\\")
     if not (len(path) >= 3 and path[1:3] == ":\\"):
         raise OSError("unsupported Windows evidence root path")
-    root_handle = _open_nt("\\??\\" + path, None, True)
+    query = _kernel32.QueryDosDeviceW
+    query.argtypes = [wintypes.LPCWSTR, wintypes.LPWSTR, wintypes.DWORD]
+    query.restype = wintypes.DWORD
+    device = ctypes.create_unicode_buffer(32768)
+    if not query(path[:2], device, len(device)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    if not re.fullmatch(r"\\Device\\HarddiskVolume[0-9]+", device.value, re.IGNORECASE):
+        raise OSError("unsupported Windows volume mapping")
+    root_parts = path[3:].split(chr(92)) if path[3:] else []
+    if any(
+        part in ("", ".", "..") or chr(58) in part or chr(0) in part
+        for part in root_parts
+    ):
+        raise OSError("unsafe Windows root component")
+    root_handle = _open_nt(device.value + chr(92), None, True)
     handles = [root_handle]
     try:
+        for part in root_parts:
+            root_handle = _open_nt(part, root_handle, True)
+            handles.append(root_handle)
         parent = root_handle
         components = relative.split("/")
         for part in components[:-1]:
