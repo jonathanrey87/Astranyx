@@ -314,8 +314,8 @@ class AuditLedger:
                 import msvcrt
 
                 _validate_windows_file(descriptor, self._lock_path)
-                if os.fstat(descriptor).st_size == 0:
-                    os.write(descriptor, b"\0")
+                # Windows can lock past EOF. Writing a marker before locking
+                # can collide with another process that already locked byte 0.
                 os.lseek(descriptor, 0, os.SEEK_SET)
                 msvcrt.locking(descriptor, msvcrt.LK_LOCK, 1)
                 locked = True

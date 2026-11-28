@@ -223,12 +223,14 @@ def test_lock_descriptor_closed_when_permission_enforcement_fails(
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows byte-range lock ordering")
-def test_windows_lock_serializes_permission_enforcement(tmp_path, monkeypatch):
+@pytest.mark.parametrize("initial", [b"", b"\0"])
+def test_windows_lock_serializes_permission_enforcement(tmp_path, monkeypatch, initial):
     import importlib
     import msvcrt
 
     module = importlib.import_module("astranyx.engagement.ledger")
     ledger = module.AuditLedger(tmp_path / "audit.jsonl", "eng-1")
+    ledger._lock_path.write_bytes(initial)
     real_locking = msvcrt.locking
     events = []
 
@@ -249,6 +251,7 @@ def test_windows_lock_serializes_permission_enforcement(tmp_path, monkeypatch):
         events.append("body")
 
     assert events == ["validation", "lock", "permissions", "body", "unlock"]
+    assert ledger._lock_path.read_bytes() == initial
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows lock symlink regression")
